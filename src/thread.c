@@ -31,7 +31,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
 
     current->uc_link = main;
 
-    makecontext(current, func, funcarg);
+    makecontext(current, (void(*)(void))func, 1, funcarg);
 
 
     struct thread_list_elem* e = malloc(sizeof(struct thread_list_elem));
