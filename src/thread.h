@@ -1,19 +1,27 @@
-#include <ucontext.h>
-
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
-
 #ifndef USE_PTHREAD
+
+#include <ucontext.h>
+#include "queue.h"
+
+struct thread_list_elem
+{
+    ucontext_t* uc;
+    void* retval;
+    int dirty;
+    
+    TAILQ_ENTRY(thread_list_elem)
+    nodes;
+};
 
 /* identifiant de thread
  * NB: pourra être un entier au lieu d'un pointeur si ca vous arrange,
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
-typedef struct thread_t {
-    ucontext_t* uc;
-}* thread_t;
+typedef struct thread_list_elem* thread_t;
 
 /* recuperer l'identifiant du thread courant.
  */

@@ -2,30 +2,28 @@
 #include <ucontext.h>
 #include "queue.h"
 #include <stdlib.h>
-
-struct thread_list_elem
-{
-    thread_t thread;
-    TAILQ_ENTRY(thread_list_elem)
-    nodes;
-};
+#include <stdio.h>
 
 TAILQ_HEAD(thread_list_s, thread_list_elem)
 thread_list;
 
+TAILQ_HEAD(dirty_thread_list_s, thread_list_elem)
+dirty_thread_list;
+
 void *thread_init()
 {
     TAILQ_INIT(&thread_list);
+    TAILQ_INIT(&dirty_thread_list);
 }
 
 thread_t thread_self()
 {
-    return TAILQ_FIRST(&thread_list)->thread;
+    return TAILQ_FIRST(&thread_list);
 }
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
-
+    printf("HELLO");
     ucontext_t *current, *main = malloc(sizeof(ucontext_t));
 
     getcontext(current);
@@ -36,8 +34,9 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     makecontext(current, (void (*)(void))func, 1, funcarg);
 
     struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
-    e->thread = *newthread;
-    e->thread->uc = current;
+    *newthread = e;
+    e->uc = current;
+    e->dirty = 0;
 
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 
@@ -58,7 +57,7 @@ int thread_yield()
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 
     ucontext_t t;
-    swapcontext(&t, TAILQ_FIRST(&thread_list)->thread->uc);
+    swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
 
     return EXIT_SUCCESS; // Should not be read
 }
@@ -69,6 +68,21 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
+    ucontext_t t;
+    while (!thread->dirty)
+    {
+        swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
+    }
+
+    if (retval)
+    {
+        *retval = thread->retval;
+    }
+
+    TAILQ_REMOVE(&dirty_thread_list, thread, nodes);
+    free(thread->uc);
+    free(thread);
+
     return EXIT_SUCCESS;
 }
 
@@ -82,6 +96,15 @@ int thread_join(thread_t thread, void **retval)
  */
 void thread_exit(void *retval)
 {
+    struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
+    e->retval = retval;
+    e->dirty = 1;
+    TAILQ_REMOVE(&thread_list, e, nodes);
+    TAILQ_INSERT_TAIL(&dirty_thread_list, e, nodes);
+
+    ucontext_t t;
+    swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
+    printf("SHOULD NOT BE EXECUTED");
 }
 
 int thread_mutex_init(thread_mutex_t *mutex)
