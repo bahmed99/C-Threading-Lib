@@ -1,5 +1,8 @@
+#include <ucontext.h>
+
 #ifndef __THREAD_H__
 #define __THREAD_H__
+
 
 #ifndef USE_PTHREAD
 
@@ -8,7 +11,9 @@
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
-typedef void * thread_t;
+typedef struct thread_t {
+    ucontext_t* uc;
+}* thread_t;
 
 /* recuperer l'identifiant du thread courant.
  */
