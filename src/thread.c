@@ -21,10 +21,7 @@ void* thread_init() {
 }
 
 
-/**
- * The purpose of this function is to append to the thread list an new thread. (It will be executed
- * with thread_yield afterwards)
-*/
+
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg) {
 
     ucontext_t* current, *main = malloc(sizeof(ucontext_t));
