@@ -3,12 +3,25 @@
 
 #ifndef USE_PTHREAD
 
+#include <ucontext.h>
+#include "queue.h"
+
+struct thread_list_elem
+{
+    ucontext_t* uc;
+    void* retval;
+    int dirty;
+    
+    TAILQ_ENTRY(thread_list_elem)
+    nodes;
+};
+
 /* identifiant de thread
  * NB: pourra être un entier au lieu d'un pointeur si ca vous arrange,
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
-typedef void * thread_t;
+typedef struct thread_list_elem* thread_t;
 
 /* recuperer l'identifiant du thread courant.
  */
@@ -37,7 +50,8 @@ extern int thread_join(thread_t thread, void **retval);
  * cet attribut dans votre interface tant que votre thread_exit()
  * n'est pas correctement implémenté (il ne doit jamais retourner).
  */
-extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
+// extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
+extern void thread_exit(void *retval);
 
 /* Interface possible pour les mutex */
 typedef struct thread_mutex { int dummy; } thread_mutex_t;

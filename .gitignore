@@ -1,0 +1,12 @@
+#IDE
+
+.vs
+.vscode
+.idea
+
+contextes
+contextes.c
+
+build
+
+install
