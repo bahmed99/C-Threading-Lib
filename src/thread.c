@@ -38,6 +38,8 @@ void thread_init_if_necessary()
 
 thread_t thread_self()
 {
+    thread_init_if_necessary();
+
     return TAILQ_FIRST(&thread_list);
 }
 
@@ -67,6 +69,8 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 
 int thread_yield()
 {
+    thread_init_if_necessary();
+
     if (TAILQ_EMPTY(&thread_list))
     {
         return EXIT_SUCCESS;
@@ -140,6 +144,10 @@ void thread_exit(void *retval)
 
 void thread_clean()
 {
+    if(!is_init) {
+        return;
+    }
+    
     struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
     free(e->uc->uc_stack.ss_sp);
     free(e->uc);
