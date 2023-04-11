@@ -4,16 +4,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+int is_init = 0;
+
 TAILQ_HEAD(thread_list_s, thread_list_elem)
 thread_list;
 
 TAILQ_HEAD(dirty_thread_list_s, thread_list_elem)
 dirty_thread_list;
 
-void *thread_init()
+ucontext_t *main_context = NULL;
+
+void thread_init_if_necessary()
 {
+    if (is_init)
+    {
+        return;
+    }
+    is_init = 1;
     TAILQ_INIT(&thread_list);
     TAILQ_INIT(&dirty_thread_list);
+    main_context = malloc(sizeof(ucontext_t));
+    getcontext(main_context);
+    struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
+    e->dirty = 0;
+    e->uc = main_context;
+    e->retval = NULL;
+    main_context->uc_link = NULL;
+    main_context->uc_stack.ss_size = 64 * 1024;
+    main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
+
+    TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 }
 
 thread_t thread_self()
@@ -23,13 +43,14 @@ thread_t thread_self()
 
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
-    printf("HELLO");
-    ucontext_t *current, *main = malloc(sizeof(ucontext_t));
+    thread_init_if_necessary();
+
+    ucontext_t *current = malloc(sizeof(ucontext_t));
 
     getcontext(current);
-    getcontext(main);
-
-    current->uc_link = main;
+    current->uc_link = TAILQ_FIRST(&thread_list)->uc;
+    current->uc_stack.ss_size = 64 * 1024;
+    current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
 
     makecontext(current, (void (*)(void))func, 1, funcarg);
 
@@ -37,6 +58,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     *newthread = e;
     e->uc = current;
     e->dirty = 0;
+    e->retval = NULL;
 
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 
@@ -45,7 +67,6 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 
 int thread_yield()
 {
-
     if (TAILQ_EMPTY(&thread_list))
     {
         return EXIT_SUCCESS;
@@ -56,10 +77,10 @@ int thread_yield()
     TAILQ_REMOVE(&thread_list, e, nodes);
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 
-    ucontext_t t;
-    swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
+    // printf("SWAP3\n");
+    swapcontext(e->uc, TAILQ_FIRST(&thread_list)->uc);
 
-    return EXIT_SUCCESS; // Should not be read
+    return EXIT_SUCCESS;
 }
 
 /* attendre la fin d'exécution d'un thread.
@@ -68,10 +89,10 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    ucontext_t t;
     while (!thread->dirty)
     {
-        swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
+        // printf("JOIN->YIELD\n");
+        thread_yield();
     }
 
     if (retval)
@@ -80,6 +101,7 @@ int thread_join(thread_t thread, void **retval)
     }
 
     TAILQ_REMOVE(&dirty_thread_list, thread, nodes);
+    free(thread->uc->uc_stack.ss_sp);
     free(thread->uc);
     free(thread);
 
@@ -102,9 +124,26 @@ void thread_exit(void *retval)
     TAILQ_REMOVE(&thread_list, e, nodes);
     TAILQ_INSERT_TAIL(&dirty_thread_list, e, nodes);
 
-    ucontext_t t;
-    swapcontext(&t, TAILQ_FIRST(&thread_list)->uc);
-    printf("SHOULD NOT BE EXECUTED");
+    struct thread_list_elem *new_e = TAILQ_FIRST(&thread_list);
+    if (new_e)
+    {
+        // printf("SWAP1\n");
+        swapcontext(e->uc, new_e->uc);
+    }
+    else
+    {
+        // printf("SWAP2\n");
+        swapcontext(e->uc, main_context);
+    }
+    printf("SHOULD NOT BE PRINTED");
+}
+
+void thread_clean()
+{
+    struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
+    free(e->uc->uc_stack.ss_sp);
+    free(e->uc);
+    free(e);
 }
 
 int thread_mutex_init(thread_mutex_t *mutex)

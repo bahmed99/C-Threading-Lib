@@ -81,4 +81,6 @@ int thread_mutex_unlock(thread_mutex_t *mutex);
 
 #endif /* USE_PTHREAD */
 
+void thread_clean();
+
 #endif /* __THREAD_H__ */

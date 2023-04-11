@@ -1,7 +1,6 @@
 TEST_DIR=test
 SRC_DIR=src
 INSTALL_DIR=install
-LIB_DIR=$(INSTALL_DIR)/lib
 BIN_DIR=$(INSTALL_DIR)/bin
 BUILD_DIR=build
 B_LIB_DIR=$(BUILD_DIR)/lib
@@ -48,19 +47,20 @@ valgrind: install
 	done
 
 $(B_LIB_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) -o $@ -c $< -I$(SRC_DIR) -DUSE_PTHREAD
+	$(CC) -o $@ -c $< -I$(SRC_DIR)
+# $(CC) -o $@ -c $< -I$(SRC_DIR) -DUSE_PTHREAD
 
-$(BINS): $(LIB_DIR)/libthread.a create_dirs
-	$(CC) -o $(BIN_DIR)/$@ $(TEST_DIR)/$@.c -I$(SRC_DIR) -L$(LIB_DIR) -lthread
+$(BINS): create_dirs $(B_LIB_DIR)/libthread.a
+	$(CC) -o $(BIN_DIR)/$@ $(TEST_DIR)/$@.c -I$(SRC_DIR) -L$(B_LIB_DIR) -lthread
 
-$(LIB_DIR)/libthread.a: $(B_LIB_DIR)/thread.o create_dirs
+$(B_LIB_DIR)/libthread.a: $(B_LIB_DIR)/thread.o
 	ar rcs $@ $< 
 
 create_dirs:
-	@mkdir -p $(LIB_DIR) $(BIN_DIR) $(B_LIB_DIR)
+	@mkdir -p $(BIN_DIR) $(B_LIB_DIR)
 
 clean:
-	@rm -rf $(INSTALL_DIR)
+	@rm -rf $(INSTALL_DIR) $(BUILD_DIR)
 
 # tests: test/*
 # 	@for f in $^ ; do \
