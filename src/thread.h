@@ -8,7 +8,7 @@
 
 struct thread_list_elem
 {
-    ucontext_t* uc;
+    ucontext_t uc;
     void* retval;
     int dirty;    
     TAILQ_ENTRY(thread_list_elem)
