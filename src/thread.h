@@ -10,8 +10,7 @@ struct thread_list_elem
 {
     ucontext_t* uc;
     void* retval;
-    int dirty;
-    
+    int dirty;    
     TAILQ_ENTRY(thread_list_elem)
     nodes;
 };

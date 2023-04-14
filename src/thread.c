@@ -134,12 +134,6 @@ void thread_exit(void *retval)
         // printf("SWAP1\n");
         swapcontext(e->uc, new_e->uc);
     }
-    else
-    {
-        // printf("SWAP2\n");
-        swapcontext(e->uc, main_context);
-    }
-    printf("SHOULD NOT BE PRINTED");
 }
 
 void thread_clean()
