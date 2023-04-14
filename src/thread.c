@@ -150,9 +150,12 @@ void thread_clean()
     }
     
     struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
-    free(e->uc->uc_stack.ss_sp);
-    free(e->uc);
-    free(e);
+    if(e) {
+        free(e->uc->uc_stack.ss_sp);
+        free(e->uc);
+        free(e);
+    }
+
 }
 
 int thread_mutex_init(thread_mutex_t *mutex)
