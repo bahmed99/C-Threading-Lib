@@ -4,11 +4,7 @@ import time
 import sys 
 
 
-# a class to initialize which library we would use
-class Thread():
-        def __init__(self,type):
-                self.type=type
-                
+
 
 # execute an exemple with the plot of performence
 class PLot_performence():
@@ -29,7 +25,7 @@ class PLot_performence():
                 # os.system("gcc " +"-I . -o exec " + "./test/"+ self.exemple )
                 #time1=os.times()
                 time1=time.time()
-                os.system("./exec")
+                #os.system("./exec")
                 time2=time.time()
                 print("diff timethread=",time2-time1)
                 #time2=os.times()
@@ -60,19 +56,23 @@ class PLot_performence():
         def plot_all_exec_time(self):
                 pthreadtime=[]
                 threadtime=[]
+                difftime=[]
                 for f in os.listdir("./test"):
                         print(f)
                         self.exemple = f
                         ttime , pttime = self.calcul_exec_time()
                         threadtime.append(ttime)
-                        pthreadtime.append(threadtime)
-                # plt.subplot(1, 2, 1)
-                plt.plot(pthreadtime)
-                plt.plot(threadtime)
-                plt.legend("system time")
-                # plt.subplot(1, 2, 2)
-                # plt.plot(pthreadtime-threadtime)
-                # plt.legend("diff time")
+                        pthreadtime.append(pttime)
+                        difftime.append(ttime-pttime)
+                plt.subplot(1, 2, 1)
+                plt.plot(pthreadtime,label='pthread')
+                plt.plot(threadtime,label='thread')
+                plt.legend(loc='upper left')
+                plt.title("system time")
+                plt.subplot(1, 2, 2)
+
+                plt.plot(difftime)
+                plt.title("diff time")
                 plt.show()
                 
 
