@@ -4,7 +4,7 @@ INSTALL_DIR=install
 BIN_DIR=$(INSTALL_DIR)/bin
 BUILD_DIR=build
 B_LIB_DIR=$(BUILD_DIR)/lib
-BINS= example 01-main 02-switch 03-equity 21-create-many 12-join-main 11-join 22-create-many-recursive 23-create-many-once 31-switch-many 32-switch-many-join 33-switch-many-cascade 61-mutex 62-mutex 51-fibonacci 81-deadlock
+BINS= example 01-main 02-switch 03-equity 21-create-many 12-join-main 11-join 22-create-many-recursive 23-create-many-once 31-switch-many 32-switch-many-join 33-switch-many-cascade 51-fibonacci 71-preemption 61-mutex 62-mutex 81-deadlock
 FIBONACCI_EXEC=51-fibonacci
 
 VALGRIND_FLAGS=--leak-check=full --show-reachable=yes --track-origins=yes
