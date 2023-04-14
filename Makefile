@@ -53,8 +53,8 @@ $(B_LIB_DIR)/%.o: $(SRC_DIR)/%.c
 $(BINS): create_dirs $(B_LIB_DIR)/libthread.a
 	$(CC) -o $(BIN_DIR)/$@ $(TEST_DIR)/$@.c -I$(SRC_DIR) -L$(B_LIB_DIR) -lthread
 
-$(B_LIB_DIR)/libthread.a: $(B_LIB_DIR)/thread.o
-	ar rcs $@ $< 
+$(B_LIB_DIR)/libthread.a: $(B_LIB_DIR)/thread.o $(B_LIB_DIR)/queue.o
+	ar rcs $@ $^ 
 
 create_dirs:
 	@mkdir -p $(BIN_DIR) $(B_LIB_DIR)

@@ -6,21 +6,12 @@
 #include <ucontext.h>
 #include "queue.h"
 
-struct thread_list_elem
-{
-    ucontext_t uc;
-    void* retval;
-    int dirty;    
-    TAILQ_ENTRY(thread_list_elem)
-    nodes;
-};
-
 /* identifiant de thread
  * NB: pourra être un entier au lieu d'un pointeur si ca vous arrange,
  *     mais attention aux inconvénient des tableaux de threads
  *     (consommation mémoire, cout d'allocation, ...).
  */
-typedef struct thread_list_elem* thread_t;
+typedef struct node* thread_t;
 
 /* recuperer l'identifiant du thread courant.
  */
@@ -52,8 +43,8 @@ extern int thread_join(thread_t thread, void **retval);
 // extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
 extern void thread_exit(void *retval);
 
-struct thread_list_elem* new_thread_list_elem(ucontext_t context);
-void free_thread_list_elem(struct thread_list_elem *e);
+// struct thread_list_elem* new_thread_list_elem(ucontext_t context);
+// void free_thread_list_elem(struct thread_list_elem *e);
 
 /* Interface possible pour les mutex */
 typedef struct thread_mutex { int dummy; } thread_mutex_t;
