@@ -34,6 +34,8 @@ void thread_init_if_necessary()
     main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
 
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
+
+    atexit(thread_clean);
 }
 
 thread_t thread_self()
