@@ -52,6 +52,9 @@ extern int thread_join(thread_t thread, void **retval);
 // extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
 extern void thread_exit(void *retval);
 
+struct thread_list_elem* new_thread_list_elem(ucontext_t context);
+void free_thread_list_elem(struct thread_list_elem *e);
+
 /* Interface possible pour les mutex */
 typedef struct thread_mutex { int dummy; } thread_mutex_t;
 int thread_mutex_init(thread_mutex_t *mutex);

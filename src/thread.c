@@ -24,10 +24,7 @@ void thread_init_if_necessary()
     TAILQ_INIT(&thread_list);
     TAILQ_INIT(&dirty_thread_list);
     getcontext(&main_context);
-    struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
-    e->dirty = 0;
-    e->uc = main_context;
-    e->retval = NULL;
+    struct thread_list_elem *e = new_thread_list_elem(main_context);
     main_context.uc_link = NULL;
     main_context.uc_stack.ss_size = 64 * 1024;
     main_context.uc_stack.ss_sp = malloc(main_context.uc_stack.ss_size);
@@ -63,11 +60,8 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 
     makecontext(&current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
 
-    struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
+    struct thread_list_elem *e = new_thread_list_elem(current);
     *newthread = e;
-    e->uc = current;
-    e->dirty = 0;
-    e->retval = NULL;
 
     TAILQ_INSERT_TAIL(&thread_list, e, nodes);
 
@@ -145,17 +139,29 @@ void thread_exit(void *retval)
 void thread_clean()
 {
     if (!is_init)
-    {
         return;
-    }
 
     struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
-    if (e)
-    {
-        free(e->uc.uc_stack.ss_sp);
-        free(e);
-    }
+    free_thread_list_elem(e);
     free(main_context.uc_stack.ss_sp);
+}
+
+struct thread_list_elem *new_thread_list_elem(ucontext_t context)
+{
+    struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
+    e->uc = context;
+    e->dirty = 0;
+    e->retval = NULL;
+    return e;
+}
+
+void free_thread_list_elem(struct thread_list_elem *e)
+{
+    if (!e)
+        return;
+    if (e->uc.uc_stack.ss_sp)
+        free(e->uc.uc_stack.ss_sp);
+    free(e);
 }
 
 int thread_mutex_init(thread_mutex_t *mutex)
