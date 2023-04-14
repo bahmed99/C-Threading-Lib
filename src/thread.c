@@ -43,6 +43,11 @@ thread_t thread_self()
     return TAILQ_FIRST(&thread_list);
 }
 
+void* thread_func_wrapper(void *(*func)(void *), void *funcarg) {
+    void* retval = func(funcarg);
+    thread_exit(retval);
+}
+
 int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
 {
     thread_init_if_necessary();
@@ -54,7 +59,7 @@ int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
     current->uc_stack.ss_size = 64 * 1024;
     current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
 
-    makecontext(current, (void (*)(void))func, 1, funcarg);
+    makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
 
     struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
     *newthread = e;
