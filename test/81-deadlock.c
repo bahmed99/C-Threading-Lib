@@ -7,20 +7,20 @@
  * il faut qu'un join renvoie -1 quand il detecte le deadlock, et les autres renvoient 0 normalement.
  */
 
+
 static thread_t th0, th1, th2;
 int totalerr = 0;
 
-static void *thfunc2(void *dummy __attribute__((unused)))
+static void * thfunc2(void *dummy __attribute__((unused)))
 {
   void *res;
   int err = thread_join(th0, &res);
   printf("join th2->th0 = %d\n", err);
   totalerr += err;
   thread_exit(NULL);
-  return NULL; /* unreachable, shut up the compiler */
 }
 
-static void *thfunc1(void *dummy __attribute__((unused)))
+static void * thfunc1(void *dummy __attribute__((unused)))
 {
   void *res;
   int err = thread_create(&th2, thfunc2, NULL);
@@ -29,7 +29,6 @@ static void *thfunc1(void *dummy __attribute__((unused)))
   printf("join th1->th2 = %d\n", err);
   totalerr += err;
   thread_exit(NULL);
-  return NULL; /* unreachable, shut up the compiler */
 }
 
 int main()
@@ -49,3 +48,4 @@ int main()
   thread_exit(NULL);
   return 0;
 }
+
