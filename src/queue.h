@@ -12,9 +12,10 @@ struct queue
 struct node
 {
 	struct node *next;
-	ucontext_t uc;
+	ucontext_t *uc;
 	void *retval;
 	int dirty;
+	int valgrind_stackid;
 };
 
 void add_tail(struct queue *q, struct node *n);
@@ -30,7 +31,7 @@ int queue_empty(struct queue *q);
 struct queue* new_queue();
 void free_queue(struct queue *q);
 
-struct node *new_node(ucontext_t context);
+struct node *new_node(ucontext_t *context);
 void free_node(struct node *n);
 
 #endif //!__QUEUE_H__

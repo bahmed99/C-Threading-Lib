@@ -3,11 +3,15 @@
 #include "queue.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
+#include <valgrind/valgrind.h>
+
+#define STACK_SIZE 1024 * 1024 * 4
 
 int is_init = 0;
 
-struct queue* thread_list;
-struct queue* dirty_thread_list;
+struct queue *thread_list;
+struct queue *dirty_thread_list;
 
 // ucontext_t main_context;
 
@@ -22,12 +26,18 @@ void thread_init_if_necessary()
     thread_list = new_queue();
     dirty_thread_list = new_queue();
 
-    ucontext_t main_context;
-    getcontext(&main_context);
-    main_context.uc_link = NULL;
-    main_context.uc_stack.ss_size = 64 * 1024;
-    main_context.uc_stack.ss_sp = malloc(main_context.uc_stack.ss_size);
+    ucontext_t *main_context = malloc(sizeof(ucontext_t));
+    getcontext(main_context);
+
     struct node *n = new_node(main_context);
+
+    main_context->uc_link = NULL;
+    main_context->uc_stack.ss_size = STACK_SIZE;
+    main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
+    n->valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
+                                                  main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
+
+    // printf("MainContext %p: sp: %p\n", main_context, main_context->uc_stack.ss_sp);
 
     add_tail(thread_list, n);
 
@@ -41,28 +51,44 @@ thread_t thread_self()
     return get_head(thread_list);
 }
 
-void *thread_func_wrapper(void *(*func)(void *), void *funcarg)
+void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
+    // printf("Inside Wrapper\n");
     void *retval = func(funcarg);
     thread_exit(retval);
+    // printf("SHOULD NOT BE CALLED\n");
+    return NULL;
 }
 
-int thread_create(thread_t *newthread, void *(*func)(void *), void *funcarg)
+int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 {
-    // thread_init_if_necessary();
+    thread_init_if_necessary();
 
-    ucontext_t current;
+    ucontext_t *current = malloc(sizeof(ucontext_t));
 
-    getcontext(&current);
-    current.uc_link = &get_head(thread_list)->uc;
-    current.uc_stack.ss_size = 64 * 1024;
-    current.uc_stack.ss_sp = malloc(current.uc_stack.ss_size);
+    struct node *n = new_node(current);
 
-    makecontext(&current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
+    getcontext(current);
+    // current->uc_link = get_head(thread_list)->uc;
+    current->uc_link = NULL;
+    current->uc_stack.ss_size = STACK_SIZE;
+    current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
+
+    n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp,
+                                                  current->uc_stack.ss_sp + current->uc_stack.ss_size);
+    // VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, STACK_SIZE);
+    // printf("thread create context address: %p: sp: %p\n", current, current->uc_stack.ss_sp);
+
+    makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
 
     // struct thread_list_elem *e = new_thread_list_elem(current);
-    struct node *n = new_node(current);
     *newthread = n;
+
+    struct node *head = get_head(thread_list);
+    if (!head->next)
+    {
+        head->uc->uc_link = n->uc;
+    }
 
     add_tail(thread_list, n);
 
@@ -74,7 +100,7 @@ int thread_yield()
     thread_init_if_necessary();
 
     // if (TAILQ_EMPTY(&thread_list))
-    if (queue_empty(thread_list))
+    if (queue_empty(thread_list) || !get_head(thread_list)->next)
     {
         return EXIT_SUCCESS;
     }
@@ -84,7 +110,22 @@ int thread_yield()
     add_tail(thread_list, n);
 
     // printf("SWAP3\n");
-    swapcontext(&n->uc, &get_head(thread_list)->uc);
+    // printf("BEFORE INVALID READ?\n");
+    // printf("old node context address: %p: sp: %p\n", n->uc, n->uc->uc_stack.ss_sp);
+    // printf("old node context address: %p\n", n->uc);
+    // printf("old node context address: sp:%p\n", n->uc->uc_stack.ss_sp);
+    // printf("AFTER INVALID READ?\n");
+
+    struct node *new_n = get_head(thread_list);
+    if (new_n->next)
+    {
+        new_n->uc->uc_link = new_n->next->uc;
+    }
+    // printf("new node context address: %p: sp: %p\n", new_n->uc, new_n->uc->uc_stack.ss_sp);
+    // printf("here3-----------\n");
+
+    // printf("SWAPCONTEXT RETURN %d\n", swapcontext(n->uc, new_n->uc));
+    swapcontext(n->uc, new_n->uc);
 
     return EXIT_SUCCESS;
 }
@@ -108,8 +149,7 @@ int thread_join(thread_t thread, void **retval)
 
     // TAILQ_REMOVE(&dirty_thread_list, thread, nodes);
     remove_node(dirty_thread_list, thread);
-    free(thread->uc.uc_stack.ss_sp);
-    free(thread);
+    // free(thread);
 
     return EXIT_SUCCESS;
 }
@@ -126,29 +166,50 @@ void thread_exit(void *retval)
 {
     // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
     // TAILQ_REMOVE(&thread_list, e, nodes);
+    // printf("---------RETVAL EXIT: %p\n", retval);
     struct node *n = pop_head(thread_list);
     n->retval = retval;
     n->dirty = 1;
+
+    // printf("EXITING NODE CONTEXT %p, SSSP: %p\n", n->uc, n->uc->uc_stack.ss_sp);
+
+    // makecontext(n->uc, NULL, 0);
+    // free(n->uc->uc_stack.ss_sp);
+    // free(n->uc);
 
     // TAILQ_INSERT_TAIL(&dirty_thread_list, e, nodes);
     add_tail(dirty_thread_list, n);
 
     // struct thread_list_elem *new_e = TAILQ_FIRST(&thread_list);
     struct node *new_n = get_head(thread_list);
-    if (n)
-        swapcontext(&n->uc, &new_n->uc);
+    if (new_n)
+    {
+        if (new_n->next)
+        {
+            // printf("LINKING TO 2ND ELEMENT\n");
+            new_n->uc->uc_link = new_n->next->uc;
+        }
+        // printf("WILL SWAPCONTEXT \n");
+        // setcontext(new_n->uc);
+        swapcontext(n->uc, new_n->uc);
+    }
     else
-        printf("[%s:%s] Error: Empty thread list after call: can't swapcontext", __FILE__, __func__);
+    {
+        // printf("EXITING\n");
+        exit(0);
+        // printf("[%s:%s] Error: Empty thread list after call: can't swapcontext\n", __FILE__, __func__);
+    }
+    printf("SHOULD NEVER BE PRINTED !!!!!!!!!!!!!\n");
 }
 
 void thread_clean()
 {
-    // printf("Please implements %s\n", __func__);
+    // printf("Called %s\n", __func__);
     if (!is_init)
         return;
 
-    free_queue(thread_list);
-    free_queue(dirty_thread_list);
+    // free_queue(thread_list);
+    // free_queue(dirty_thread_list);
 
     // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
 
@@ -176,16 +237,20 @@ void thread_clean()
 
 int thread_mutex_init(thread_mutex_t *mutex)
 {
+    return EXIT_SUCCESS;
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
+    return EXIT_SUCCESS;
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
+    return EXIT_SUCCESS;
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
+    return EXIT_SUCCESS;
 }

@@ -31,6 +31,7 @@ struct node *pop_head(struct queue *q)
 	if (!q->head)
 		q->tail = NULL;
 
+	n->next = NULL;
 	return n;
 }
 
@@ -71,7 +72,7 @@ int queue_empty(struct queue *q)
 	return q->head == NULL;
 }
 
-struct node *new_node(ucontext_t context)
+struct node *new_node(ucontext_t* context)
 {
 	struct node *n = malloc(sizeof(struct node));
 	n->uc = context;
@@ -88,7 +89,8 @@ void free_node(struct node *n)
 		return;
 
 	free_node(n->next);
-	free(n->uc.uc_stack.ss_sp);
+	free(n->uc->uc_stack.ss_sp);
+	free(n->uc);
 	free(n);
 }
 
