@@ -12,8 +12,41 @@ int is_init = 0;
 
 struct queue *thread_list;
 struct queue *dirty_thread_list;
+ucontext_t *cleaner_context;
+int cleaner_valgrind_stackid;
 
 // ucontext_t main_context;
+
+void cleaner_context_function()
+{
+    for (;;)
+    {
+        struct node *to_clean = get_tail(dirty_thread_list);
+        
+        VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
+        free(to_clean->uc->uc_stack.ss_sp);
+        free(to_clean->uc);
+
+        struct node *new_n = get_head(thread_list);
+        if (new_n)
+        {
+            if (new_n->next)
+            {
+                // printf("LINKING TO 2ND ELEMENT\n");
+                new_n->uc->uc_link = new_n->next->uc;
+            }
+            // printf("WILL SWAPCONTEXT \n");
+            // setcontext(new_n->uc);
+            swapcontext(cleaner_context, new_n->uc);
+        }
+        else
+        {
+            // printf("EXITING\n");
+            exit(0);
+            // printf("[%s:%s] Error: Empty thread list after call: can't swapcontext\n", __FILE__, __func__);
+        }
+    }
+}
 
 void thread_init_if_necessary()
 {
@@ -40,6 +73,16 @@ void thread_init_if_necessary()
     // printf("MainContext %p: sp: %p\n", main_context, main_context->uc_stack.ss_sp);
 
     add_tail(thread_list, n);
+
+    cleaner_context = malloc(sizeof(ucontext_t));
+    getcontext(cleaner_context);
+    cleaner_context->uc_link = NULL;
+    cleaner_context->uc_stack.ss_size = 1024;
+    cleaner_context->uc_stack.ss_sp = malloc(cleaner_context->uc_stack.ss_size);
+    cleaner_valgrind_stackid = VALGRIND_STACK_REGISTER(cleaner_context->uc_stack.ss_sp,
+                                                       cleaner_context->uc_stack.ss_sp + cleaner_context->uc_stack.ss_size);
+
+    makecontext(cleaner_context, cleaner_context_function, 0);
 
     atexit(thread_clean);
 }
@@ -149,7 +192,7 @@ int thread_join(thread_t thread, void **retval)
 
     // TAILQ_REMOVE(&dirty_thread_list, thread, nodes);
     remove_node(dirty_thread_list, thread);
-    // free(thread);
+    free(thread);
 
     return EXIT_SUCCESS;
 }
@@ -164,8 +207,6 @@ int thread_join(thread_t thread, void **retval)
  */
 void thread_exit(void *retval)
 {
-    // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
-    // TAILQ_REMOVE(&thread_list, e, nodes);
     // printf("---------RETVAL EXIT: %p\n", retval);
     struct node *n = pop_head(thread_list);
     n->retval = retval;
@@ -177,28 +218,9 @@ void thread_exit(void *retval)
     // free(n->uc->uc_stack.ss_sp);
     // free(n->uc);
 
-    // TAILQ_INSERT_TAIL(&dirty_thread_list, e, nodes);
     add_tail(dirty_thread_list, n);
 
-    // struct thread_list_elem *new_e = TAILQ_FIRST(&thread_list);
-    struct node *new_n = get_head(thread_list);
-    if (new_n)
-    {
-        if (new_n->next)
-        {
-            // printf("LINKING TO 2ND ELEMENT\n");
-            new_n->uc->uc_link = new_n->next->uc;
-        }
-        // printf("WILL SWAPCONTEXT \n");
-        // setcontext(new_n->uc);
-        swapcontext(n->uc, new_n->uc);
-    }
-    else
-    {
-        // printf("EXITING\n");
-        exit(0);
-        // printf("[%s:%s] Error: Empty thread list after call: can't swapcontext\n", __FILE__, __func__);
-    }
+    setcontext(cleaner_context);
     printf("SHOULD NEVER BE PRINTED !!!!!!!!!!!!!\n");
 }
 
@@ -208,8 +230,12 @@ void thread_clean()
     if (!is_init)
         return;
 
-    // free_queue(thread_list);
-    // free_queue(dirty_thread_list);
+    free_queue(thread_list);
+    free_queue(dirty_thread_list);
+
+    VALGRIND_STACK_DEREGISTER(cleaner_context->uc_stack.ss_sp);
+    free(cleaner_context->uc_stack.ss_sp);
+    free(cleaner_context);
 
     // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
 

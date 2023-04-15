@@ -22,6 +22,8 @@ void add_tail(struct queue *q, struct node *n);
 
 struct node *get_head(struct queue *q);
 
+struct node *get_tail(struct queue *q);
+
 struct node *pop_head(struct queue *q);
 
 void remove_node(struct queue *q, struct node *n);
