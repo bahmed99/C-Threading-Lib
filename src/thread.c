@@ -6,7 +6,7 @@
 #include <signal.h>
 #include <valgrind/valgrind.h>
 
-#define STACK_SIZE 1024 * 1024 * 4
+#define STACK_SIZE 1024 * 32
 
 int is_init = 0;
 
