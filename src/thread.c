@@ -148,6 +148,10 @@ int thread_yield()
         return EXIT_SUCCESS;
     }
 
+    if (get_head(thread_list) == get_tail(thread_list))
+    {
+        return EXIT_SUCCESS;
+    }
 
     struct node *n = pop_head(thread_list);
 
@@ -182,6 +186,7 @@ int thread_yield()
 int thread_join(thread_t thread, void **retval)
 {
     while (!thread->dirty)
+
     {
         // printf("JOIN->YIELD\n");
         thread_yield();
@@ -266,26 +271,22 @@ void thread_clean()
 int thread_mutex_init(thread_mutex_t *mutex)
 {
 
-    thread_mutex_t *m = NULL;
-    m = (thread_mutex_t *)mutex;
-    m->dummy = 0;
-    m->waiting_mutex = new_queue();
-    m->owner = NULL;
+    mutex->waiting_mutex = new_queue();
+    mutex->owner = NULL;
 
     return 0;
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
-    free_queue(mutex->waiting_mutex);
-    free_node(mutex->owner);
-    mutex->dummy = 0;
+
+    // free_queue(mutex->waiting_mutex);
     return 0;
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
-    struct node *current_thread = thread_self();
+    struct node *current_thread = get_head(thread_list);
 
     if (mutex->owner)
     {
@@ -294,7 +295,6 @@ int thread_mutex_lock(thread_mutex_t *mutex)
 
         while (mutex->owner != current_thread)
         {
-
             remove_node(thread_list, current_thread);
             remove_node(thread_list, mutex->owner);
             add_head(thread_list, mutex->owner);
@@ -302,7 +302,9 @@ int thread_mutex_lock(thread_mutex_t *mutex)
         }
     }
     else
+    {
         mutex->owner = current_thread;
+    }
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
@@ -310,9 +312,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex)
 
     if (!queue_empty(mutex->waiting_mutex))
     {
-        struct node *head = get_head(mutex->waiting_mutex);
-
-        pop_head(mutex->waiting_mutex);
+        struct node *head = pop_head(mutex->waiting_mutex);
         add_tail(thread_list, head);
         mutex->owner = head;
     }

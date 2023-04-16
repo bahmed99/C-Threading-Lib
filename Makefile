@@ -21,7 +21,7 @@ GREEN=\033[0;32m
 NC=\033[0m
 
 
-all: install pthreads 
+all: install 
 
 install: $(BINS)
 
@@ -78,7 +78,7 @@ $(B_LIB_DIR)/%.o: $(SRC_DIR)/%.c
 # $(CC) -o $@ -c $< -I$(SRC_DIR) -DUSE_PTHREAD
 
 $(BINS): create_dirs $(B_LIB_DIR)/libthread.a
-	$(CC) $(CCFLAGS) -o $(BIN_DIR)/$@ $(TEST_DIR)/$@.c -I$(SRC_DIR) -L$(B_LIB_DIR) -lthread
+	$(CC) $(CCFLAGS) -o  $(BIN_DIR)/$@ $(TEST_DIR)/$@.c -I$(SRC_DIR) -L$(B_LIB_DIR) -lthread
 
 $(B_LIB_DIR)/libthread.a: $(B_LIB_DIR)/thread.o $(B_LIB_DIR)/queue.o
 	ar rcs $@ $^ 

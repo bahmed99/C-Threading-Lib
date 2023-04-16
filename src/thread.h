@@ -49,7 +49,6 @@ extern void thread_exit(void *retval);
 /* Interface possible pour les mutex */
 typedef struct thread_mutex
 {
-    int dummy;
     struct queue* waiting_mutex;
     struct node* owner;
     
