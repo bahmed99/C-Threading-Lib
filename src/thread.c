@@ -11,7 +11,6 @@
 int is_init = 0;
 
 struct queue *thread_list;
-struct queue *waiting_thread_list;
 struct queue *dirty_thread_list;
 ucontext_t *cleaner_context;
 int cleaner_valgrind_stackid;
@@ -23,7 +22,7 @@ void cleaner_context_function()
     for (;;)
     {
         struct node *to_clean = get_tail(dirty_thread_list);
-        
+
         VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
         free(to_clean->uc->uc_stack.ss_sp);
         free(to_clean->uc);
@@ -59,7 +58,6 @@ void thread_init_if_necessary()
 
     thread_list = new_queue();
     dirty_thread_list = new_queue();
-    waiting_thread_list = new_queue();
 
     ucontext_t *main_context = malloc(sizeof(ucontext_t));
     getcontext(main_context);
@@ -104,7 +102,6 @@ void *thread_func_wrapper(void *(func)(void *), void *funcarg)
     // printf("SHOULD NOT BE CALLED\n");
     return NULL;
 }
-
 
 int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 {
@@ -156,7 +153,6 @@ int thread_yield()
 
     add_tail(thread_list, n);
 
-
     // printf("SWAP3\n");
     // printf("BEFORE INVALID READ?\n");
     // printf("old node context address: %p: sp: %p\n", n->uc, n->uc->uc_stack.ss_sp);
@@ -169,7 +165,6 @@ int thread_yield()
     {
         new_n->uc->uc_link = new_n->next->uc;
     }
-    
 
     // printf("new node context address: %p: sp: %p\n", new_n->uc, new_n->uc->uc_stack.ss_sp);
     // printf("here3-----------\n");
@@ -269,80 +264,61 @@ void thread_clean()
 // }
 
 int thread_mutex_init(thread_mutex_t *mutex)
-{ 
-    
-    thread_mutex_t *m= NULL;
-    m= (thread_mutex_t *) mutex;
+{
+
+    thread_mutex_t *m = NULL;
+    m = (thread_mutex_t *)mutex;
     m->dummy = 0;
-    m->waiting_mutex=new_queue();
-   
+    m->waiting_mutex = new_queue();
+    m->owner = NULL;
+
     return 0;
-    
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
     free_queue(mutex->waiting_mutex);
+    free_node(mutex->owner);
     mutex->dummy = 0;
     return 0;
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
-   
-    while (1)
+    struct node *current_thread = thread_self();
+
+    if (mutex->owner)
     {
-        if (mutex->dummy == 0)
+
+        add_tail(mutex->waiting_mutex, current_thread);
+
+        while (mutex->owner != current_thread)
         {
-            mutex->dummy = 1;
 
-            return 0;
-        }
-        else
-        {
-            
-           
-            struct node *current_thread = thread_self();
-              
-            add_tail(mutex->waiting_mutex, current_thread);
-          
-    
-            if (queue_empty(waiting_thread_list))
-            {
-                
-                setcontext(cleaner_context);
-            }
-            else
-            {
-                
-                struct node *next_thread = get_head(waiting_thread_list);
-                pop_head(waiting_thread_list);
-
-                swapcontext(current_thread->uc, next_thread->uc);
-
-
-            }
+            remove_node(thread_list, current_thread);
+            remove_node(thread_list, mutex->owner);
+            add_head(thread_list, mutex->owner);
+            swapcontext(current_thread->uc, mutex->owner->uc);
         }
     }
+    else
+        mutex->owner = current_thread;
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
-    mutex->dummy = 0;
-
-    struct node *next_thread=NULL;
 
     if (!queue_empty(mutex->waiting_mutex))
     {
+        struct node *head = get_head(mutex->waiting_mutex);
 
-        next_thread = get_head(mutex->waiting_mutex);
-
-        remove_node(mutex->waiting_mutex, next_thread);
-       
-        add_tail(thread_list, next_thread);
-
-        return 0;
+        pop_head(mutex->waiting_mutex);
+        add_tail(thread_list, head);
+        mutex->owner = head;
     }
-
+    else
+    {
+        mutex->owner = NULL;
+    }
     return 0;
 }

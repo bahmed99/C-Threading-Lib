@@ -20,6 +20,8 @@ struct node
 
 void add_tail(struct queue *q, struct node *n);
 
+void add_head(struct queue *q, struct node *n);
+
 struct node *get_head(struct queue *q);
 
 struct node *get_tail(struct queue *q);

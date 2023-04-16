@@ -51,6 +51,7 @@ typedef struct thread_mutex
 {
     int dummy;
     struct queue* waiting_mutex;
+    struct node* owner;
     
 } thread_mutex_t;
 int thread_mutex_init(thread_mutex_t *mutex);

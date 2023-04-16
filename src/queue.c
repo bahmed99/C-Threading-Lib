@@ -16,6 +16,14 @@ void add_tail(struct queue *q, struct node *n)
 	// printf("QUEUE HEAD TAIL :%p %p\n", q->head, q->tail);
 }
 
+void add_head(struct queue *q, struct node *n)
+{
+	n->next = q->head;
+	q->head = n;
+	if (!q->tail)
+		q->tail = n;
+}
+
 struct node *get_head(struct queue *q)
 {
 	return q->head;
@@ -62,7 +70,7 @@ void remove_node(struct queue *q, struct node *n)
 	}
 	if (!tmp)
 	{
-		printf("[%s:%s] Error: Node not found in queue", __FILE__, __func__);
+		// printf("[%s:%s] Error: Node not found in queue", __FILE__, __func__);
 		return;
 	}
 	tmp->next = tmp->next->next;
