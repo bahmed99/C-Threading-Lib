@@ -47,7 +47,12 @@ extern void thread_exit(void *retval);
 // void free_thread_list_elem(struct thread_list_elem *e);
 
 /* Interface possible pour les mutex */
-typedef struct thread_mutex { int dummy; } thread_mutex_t;
+typedef struct thread_mutex
+{
+    int dummy;
+    struct queue* waiting_mutex;
+    
+} thread_mutex_t;
 int thread_mutex_init(thread_mutex_t *mutex);
 int thread_mutex_destroy(thread_mutex_t *mutex);
 int thread_mutex_lock(thread_mutex_t *mutex);
@@ -66,11 +71,11 @@ int thread_mutex_unlock(thread_mutex_t *mutex);
 #define thread_exit pthread_exit
 
 /* Interface possible pour les mutex */
-#define thread_mutex_t            pthread_mutex_t
+#define thread_mutex_t pthread_mutex_t
 #define thread_mutex_init(_mutex) pthread_mutex_init(_mutex, NULL)
-#define thread_mutex_destroy      pthread_mutex_destroy
-#define thread_mutex_lock         pthread_mutex_lock
-#define thread_mutex_unlock       pthread_mutex_unlock
+#define thread_mutex_destroy pthread_mutex_destroy
+#define thread_mutex_lock pthread_mutex_lock
+#define thread_mutex_unlock pthread_mutex_unlock
 
 #endif /* USE_PTHREAD */
 

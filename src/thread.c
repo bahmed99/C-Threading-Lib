@@ -11,6 +11,7 @@
 int is_init = 0;
 
 struct queue *thread_list;
+struct queue *waiting_thread_list;
 struct queue *dirty_thread_list;
 ucontext_t *cleaner_context;
 int cleaner_valgrind_stackid;
@@ -58,6 +59,7 @@ void thread_init_if_necessary()
 
     thread_list = new_queue();
     dirty_thread_list = new_queue();
+    waiting_thread_list = new_queue();
 
     ucontext_t *main_context = malloc(sizeof(ucontext_t));
     getcontext(main_context);
@@ -70,7 +72,7 @@ void thread_init_if_necessary()
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
                                                   main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
 
-    // printf("MainContext %p: sp: %p\n", main_context, main_context->uc_stack.ss_sp);
+    // printf("MainContext %p: sp: main_thread%p\n", main_context, main_context->uc_stack.ss_sp);
 
     add_tail(thread_list, n);
 
@@ -102,6 +104,7 @@ void *thread_func_wrapper(void *(func)(void *), void *funcarg)
     // printf("SHOULD NOT BE CALLED\n");
     return NULL;
 }
+
 
 int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 {
@@ -148,9 +151,11 @@ int thread_yield()
         return EXIT_SUCCESS;
     }
 
+
     struct node *n = pop_head(thread_list);
 
     add_tail(thread_list, n);
+
 
     // printf("SWAP3\n");
     // printf("BEFORE INVALID READ?\n");
@@ -164,6 +169,8 @@ int thread_yield()
     {
         new_n->uc->uc_link = new_n->next->uc;
     }
+    
+
     // printf("new node context address: %p: sp: %p\n", new_n->uc, new_n->uc->uc_stack.ss_sp);
     // printf("here3-----------\n");
 
@@ -262,21 +269,80 @@ void thread_clean()
 // }
 
 int thread_mutex_init(thread_mutex_t *mutex)
-{
-    return EXIT_SUCCESS;
+{ 
+    
+    thread_mutex_t *m= NULL;
+    m= (thread_mutex_t *) mutex;
+    m->dummy = 0;
+    m->waiting_mutex=new_queue();
+   
+    return 0;
+    
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+    free_queue(mutex->waiting_mutex);
+    mutex->dummy = 0;
+    return 0;
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+   
+    while (1)
+    {
+        if (mutex->dummy == 0)
+        {
+            mutex->dummy = 1;
+
+            return 0;
+        }
+        else
+        {
+            
+           
+            struct node *current_thread = thread_self();
+              
+            add_tail(mutex->waiting_mutex, current_thread);
+          
+    
+            if (queue_empty(waiting_thread_list))
+            {
+                
+                setcontext(cleaner_context);
+            }
+            else
+            {
+                
+                struct node *next_thread = get_head(waiting_thread_list);
+                pop_head(waiting_thread_list);
+
+                swapcontext(current_thread->uc, next_thread->uc);
+
+
+            }
+        }
+    }
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+    mutex->dummy = 0;
+
+    struct node *next_thread=NULL;
+
+    if (!queue_empty(mutex->waiting_mutex))
+    {
+
+        next_thread = get_head(mutex->waiting_mutex);
+
+        remove_node(mutex->waiting_mutex, next_thread);
+       
+        add_tail(thread_list, next_thread);
+
+        return 0;
+    }
+
+    return 0;
 }
