@@ -22,7 +22,7 @@ void cleaner_context_function()
     for (;;)
     {
         struct node *to_clean = get_tail(dirty_thread_list);
-        
+
         VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
         free(to_clean->uc->uc_stack.ss_sp);
         free(to_clean->uc);
@@ -70,7 +70,7 @@ void thread_init_if_necessary()
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
                                                   main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
 
-    // printf("MainContext %p: sp: %p\n", main_context, main_context->uc_stack.ss_sp);
+    // printf("MainContext %p: sp: main_thread%p\n", main_context, main_context->uc_stack.ss_sp);
 
     add_tail(thread_list, n);
 
@@ -148,6 +148,11 @@ int thread_yield()
         return EXIT_SUCCESS;
     }
 
+    if (get_head(thread_list) == get_tail(thread_list))
+    {
+        return EXIT_SUCCESS;
+    }
+
     struct node *n = pop_head(thread_list);
 
     add_tail(thread_list, n);
@@ -164,6 +169,7 @@ int thread_yield()
     {
         new_n->uc->uc_link = new_n->next->uc;
     }
+
     // printf("new node context address: %p: sp: %p\n", new_n->uc, new_n->uc->uc_stack.ss_sp);
     // printf("here3-----------\n");
 
@@ -180,6 +186,7 @@ int thread_yield()
 int thread_join(thread_t thread, void **retval)
 {
     while (!thread->dirty)
+
     {
         // printf("JOIN->YIELD\n");
         thread_yield();
@@ -263,20 +270,55 @@ void thread_clean()
 
 int thread_mutex_init(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+
+    mutex->waiting_mutex = new_queue();
+    mutex->owner = NULL;
+
+    return 0;
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+
+    // free_queue(mutex->waiting_mutex);
+    return 0;
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+    struct node *current_thread = get_head(thread_list);
+
+    if (mutex->owner)
+    {
+
+        add_tail(mutex->waiting_mutex, current_thread);
+
+        while (mutex->owner != current_thread)
+        {
+            remove_node(thread_list, current_thread);
+            remove_node(thread_list, mutex->owner);
+            add_head(thread_list, mutex->owner);
+            swapcontext(current_thread->uc, mutex->owner->uc);
+        }
+    }
+    else
+    {
+        mutex->owner = current_thread;
+    }
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex)
 {
-    return EXIT_SUCCESS;
+
+    if (!queue_empty(mutex->waiting_mutex))
+    {
+        struct node *head = pop_head(mutex->waiting_mutex);
+        add_tail(thread_list, head);
+        mutex->owner = head;
+    }
+    else
+    {
+        mutex->owner = NULL;
+    }
+    return 0;
 }
