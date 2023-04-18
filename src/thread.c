@@ -12,10 +12,12 @@ int is_init = 0;
 
 struct queue *thread_list;
 struct queue *dirty_thread_list;
+
 ucontext_t *cleaner_context;
 int cleaner_valgrind_stackid;
 
-// ucontext_t main_context;
+ucontext_t *main_context;
+int main_valgrind_stackid;
 
 void cleaner_context_function()
 {
@@ -23,27 +25,26 @@ void cleaner_context_function()
     {
         struct node *to_clean = get_tail(dirty_thread_list);
 
-        VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
-        free(to_clean->uc->uc_stack.ss_sp);
-        free(to_clean->uc);
+        if (main_context != to_clean->uc)
+        {
+            VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
+            free(to_clean->uc->uc_stack.ss_sp);
+            free(to_clean->uc);
+        }
 
         struct node *new_n = get_head(thread_list);
         if (new_n)
         {
             if (new_n->next)
             {
-                // printf("LINKING TO 2ND ELEMENT\n");
                 new_n->uc->uc_link = new_n->next->uc;
             }
-            // printf("WILL SWAPCONTEXT \n");
-            // setcontext(new_n->uc);
             swapcontext(cleaner_context, new_n->uc);
         }
         else
         {
-            // printf("EXITING\n");
-            exit(EXIT_SUCCESS);
-            // printf("[%s:%s] Error: Empty thread list after call: can't swapcontext\n", __FILE__, __func__);
+            printf("EXITING\n");
+            setcontext(main_context);
         }
     }
 }
@@ -59,7 +60,7 @@ void thread_init_if_necessary()
     thread_list = new_queue();
     dirty_thread_list = new_queue();
 
-    ucontext_t *main_context = malloc(sizeof(ucontext_t));
+    main_context = malloc(sizeof(ucontext_t));
     getcontext(main_context);
 
     struct node *n = new_node(main_context);
@@ -67,8 +68,9 @@ void thread_init_if_necessary()
     main_context->uc_link = NULL;
     main_context->uc_stack.ss_size = STACK_SIZE;
     main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
-    n->valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
+    main_valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
                                                   main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
+    n->valgrind_stackid = main_valgrind_stackid;
 
     // printf("MainContext %p: sp: main_thread%p\n", main_context, main_context->uc_stack.ss_sp);
 
@@ -96,10 +98,8 @@ thread_t thread_self()
 
 void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
-    // printf("Inside Wrapper\n");
     void *retval = func(funcarg);
     thread_exit(retval);
-    // printf("SHOULD NOT BE CALLED\n");
     return NULL;
 }
 
@@ -112,19 +112,15 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     struct node *n = new_node(current);
 
     getcontext(current);
-    // current->uc_link = get_head(thread_list)->uc;
     current->uc_link = NULL;
     current->uc_stack.ss_size = STACK_SIZE;
     current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
 
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp,
                                                   current->uc_stack.ss_sp + current->uc_stack.ss_size);
-    // VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, STACK_SIZE);
-    // printf("thread create context address: %p: sp: %p\n", current, current->uc_stack.ss_sp);
 
     makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
 
-    // struct thread_list_elem *e = new_thread_list_elem(current);
     *newthread = n;
 
     struct node *head = get_head(thread_list);
@@ -157,23 +153,12 @@ int thread_yield()
 
     add_tail(thread_list, n);
 
-    // printf("SWAP3\n");
-    // printf("BEFORE INVALID READ?\n");
-    // printf("old node context address: %p: sp: %p\n", n->uc, n->uc->uc_stack.ss_sp);
-    // printf("old node context address: %p\n", n->uc);
-    // printf("old node context address: sp:%p\n", n->uc->uc_stack.ss_sp);
-    // printf("AFTER INVALID READ?\n");
-
     struct node *new_n = get_head(thread_list);
     if (new_n->next)
     {
         new_n->uc->uc_link = new_n->next->uc;
     }
 
-    // printf("new node context address: %p: sp: %p\n", new_n->uc, new_n->uc->uc_stack.ss_sp);
-    // printf("here3-----------\n");
-
-    // printf("SWAPCONTEXT RETURN %d\n", swapcontext(n->uc, new_n->uc));
     swapcontext(n->uc, new_n->uc);
 
     return EXIT_SUCCESS;
@@ -218,16 +203,12 @@ void thread_exit(void *retval)
     n->retval = retval;
     n->dirty = 1;
 
-    // printf("EXITING NODE CONTEXT %p, SSSP: %p\n", n->uc, n->uc->uc_stack.ss_sp);
-
-    // makecontext(n->uc, NULL, 0);
-    // free(n->uc->uc_stack.ss_sp);
-    // free(n->uc);
-
     add_tail(dirty_thread_list, n);
 
-    setcontext(cleaner_context);
-    printf("SHOULD NEVER BE PRINTED !!!!!!!!!!!!!\n");
+    swapcontext(n->uc, cleaner_context);
+
+    // We access this only if the main thread is joined by another one -> but we still need to go back to it to properly end the process
+    exit(0);
 }
 
 void thread_clean()
@@ -239,38 +220,14 @@ void thread_clean()
     free_queue(thread_list);
     free_queue(dirty_thread_list);
 
-    // printf("WHERE 1 ?\n");
-    // printf("CONTEXT: %p : %p\n", cleaner_context, cleaner_context->uc_stack.ss_sp);
     VALGRIND_STACK_DEREGISTER(cleaner_valgrind_stackid);
-    // printf("WHERE 2 ?\n");
     free(cleaner_context->uc_stack.ss_sp);
-    // printf("WHERE 3 ?\n");
     free(cleaner_context);
-    // printf("WHERE 4 ?\n");
 
-    // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
-
-    // free_thread_list_elem(e);
-    // free(main_context.uc_stack.ss_sp);
+    VALGRIND_STACK_DEREGISTER(main_valgrind_stackid);
+    free(main_context->uc_stack.ss_sp);
+    free(main_context);
 }
-
-// struct thread_list_elem *new_thread_list_elem(ucontext_t context)
-// {
-//     struct thread_list_elem *e = malloc(sizeof(struct thread_list_elem));
-//     e->uc = context;
-//     e->dirty = 0;
-//     e->retval = NULL;
-//     return e;
-// }
-
-// void free_thread_list_elem(struct thread_list_elem *e)
-// {
-//     if (!e)
-//         return;
-//     if (e->uc.uc_stack.ss_sp)
-//         free(e->uc.uc_stack.ss_sp);
-//     free(e);
-// }
 
 int thread_mutex_init(thread_mutex_t *mutex)
 {

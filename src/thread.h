@@ -6,6 +6,8 @@
 #include <ucontext.h>
 #include "queue.h"
 
+extern ucontext_t *main_context;
+
 /* identifiant de thread
  * NB: pourra être un entier au lieu d'un pointeur si ca vous arrange,
  *     mais attention aux inconvénient des tableaux de threads
