@@ -283,8 +283,7 @@ int thread_mutex_init(thread_mutex_t *mutex)
 
 int thread_mutex_destroy(thread_mutex_t *mutex)
 {
-
-    // free_queue(mutex->waiting_mutex);
+    free_queue(mutex->waiting_mutex);
     return 0;
 }
 
