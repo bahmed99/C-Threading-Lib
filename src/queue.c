@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "queue.h"
+#include "thread.h"
 
 void add_tail(struct queue *q, struct node *n)
 {
@@ -97,12 +98,11 @@ struct node *new_node(ucontext_t *context)
 
 void free_node(struct node *n)
 {
-	// printf("Please implements %s\n", __func__);
 	if (!n)
 		return;
 
 	free_node(n->next);
-	if (!n->dirty)
+	if (!n->dirty && n->uc != main_context)
 	{
 		free(n->uc->uc_stack.ss_sp);
 		free(n->uc);
