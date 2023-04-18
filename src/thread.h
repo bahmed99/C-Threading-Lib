@@ -42,8 +42,7 @@ extern int thread_join(thread_t thread, void **retval);
  * cet attribut dans votre interface tant que votre thread_exit()
  * n'est pas correctement implémenté (il ne doit jamais retourner).
  */
-// extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
-extern void thread_exit(void *retval);
+extern void thread_exit(void *retval) __attribute__ ((__noreturn__));
 
 // struct thread_list_elem* new_thread_list_elem(ucontext_t context);
 // void free_thread_list_elem(struct thread_list_elem *e);
