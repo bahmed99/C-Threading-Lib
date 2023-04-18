@@ -42,7 +42,7 @@ void cleaner_context_function()
         else
         {
             // printf("EXITING\n");
-            exit(0);
+            exit(EXIT_SUCCESS);
             // printf("[%s:%s] Error: Empty thread list after call: can't swapcontext\n", __FILE__, __func__);
         }
     }
@@ -186,7 +186,6 @@ int thread_yield()
 int thread_join(thread_t thread, void **retval)
 {
     while (!thread->dirty)
-
     {
         // printf("JOIN->YIELD\n");
         thread_yield();
@@ -240,14 +239,19 @@ void thread_clean()
     free_queue(thread_list);
     free_queue(dirty_thread_list);
 
-    VALGRIND_STACK_DEREGISTER(cleaner_context->uc_stack.ss_sp);
+    // printf("WHERE 1 ?\n");
+    // printf("CONTEXT: %p : %p\n", cleaner_context, cleaner_context->uc_stack.ss_sp);
+    VALGRIND_STACK_DEREGISTER(cleaner_valgrind_stackid);
+    // printf("WHERE 2 ?\n");
     free(cleaner_context->uc_stack.ss_sp);
+    // printf("WHERE 3 ?\n");
     free(cleaner_context);
+    // printf("WHERE 4 ?\n");
 
     // struct thread_list_elem *e = TAILQ_FIRST(&thread_list);
 
     // free_thread_list_elem(e);
-    // free(main_context.uc_stack.ss_sp); // TODO
+    // free(main_context.uc_stack.ss_sp);
 }
 
 // struct thread_list_elem *new_thread_list_elem(ucontext_t context)
