@@ -6,7 +6,7 @@
 #include <signal.h>
 #include <valgrind/valgrind.h>
 
-#define STACK_SIZE 1024 * 32
+#define STACK_SIZE 1024 * 16
 
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
@@ -172,7 +172,6 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 // This function should not be used in cased of an empty thread_list
 int swap_from_n_to_head_thread(struct node *n)
 {
-
     struct node *new_n = get_head(thread_list);
     if (new_n->next)
     {
