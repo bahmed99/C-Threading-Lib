@@ -93,9 +93,9 @@ void thread_init_if_necessary()
     main_context->uc_link = NULL;
     main_context->uc_stack.ss_size = STACK_SIZE;
     main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
-    main_valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp,
-                                                    main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
+    main_valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp, main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
     n->valgrind_stackid = main_valgrind_stackid;
+
     // Add the main_thread_node to the thread list
     // -> The main thread is at this point the only and currently executed thread
     add_tail(thread_list, n);
@@ -108,8 +108,8 @@ void thread_init_if_necessary()
     cleaner_context->uc_link = NULL;
     cleaner_context->uc_stack.ss_size = 1024;
     cleaner_context->uc_stack.ss_sp = malloc(cleaner_context->uc_stack.ss_size);
-    cleaner_valgrind_stackid = VALGRIND_STACK_REGISTER(cleaner_context->uc_stack.ss_sp,
-                                                       cleaner_context->uc_stack.ss_sp + cleaner_context->uc_stack.ss_size);
+    cleaner_valgrind_stackid = VALGRIND_STACK_REGISTER(cleaner_context->uc_stack.ss_sp, cleaner_context->uc_stack.ss_sp + cleaner_context->uc_stack.ss_size);
+
     // Associates the cleaner_context_function to the cleaner context
     makecontext(cleaner_context, cleaner_context_function, 0);
 
@@ -147,8 +147,7 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     current->uc_link = NULL;
     current->uc_stack.ss_size = STACK_SIZE;
     current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
-    n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp,
-                                                  current->uc_stack.ss_sp + current->uc_stack.ss_size);
+    n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, current->uc_stack.ss_sp + current->uc_stack.ss_size);
 
     // Associates the given function (wrapped with thread_func_wrapper) to the context
     makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
@@ -209,7 +208,6 @@ int thread_join(thread_t thread, void **retval)
 {
     while (!thread->dirty)
     {
-        // printf("JOIN->YIELD\n");
         thread_yield();
     }
 
@@ -218,7 +216,6 @@ int thread_join(thread_t thread, void **retval)
         *retval = thread->retval;
     }
 
-    // TAILQ_REMOVE(&dirty_thread_list, thread, nodes);
     remove_node(dirty_thread_list, thread);
     free(thread);
 

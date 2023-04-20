@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <valgrind/valgrind.h>
 
 #include "queue.h"
 #include "thread.h"
@@ -104,6 +105,7 @@ void free_node(struct node *n)
 	free_node(n->next);
 	if (!n->dirty && n->uc != main_context)
 	{
+		VALGRIND_STACK_DEREGISTER(n->valgrind_stackid);
 		free(n->uc->uc_stack.ss_sp);
 		free(n->uc);
 	}
