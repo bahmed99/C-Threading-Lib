@@ -10,6 +10,7 @@ BINS_EXEC= "01-main" "02-switch" "03-equity" "11-join" "12-join-main" "21-create
 VALGRIND_FLAGS=--leak-check=full --show-reachable=yes --track-origins=yes
 MAKEFLAGS += --no-print-directory
 CC=gcc
+CCFLAGS=-O3
 # CCFLAGS=-Wall
 
 GREEN=\033[0;32m
