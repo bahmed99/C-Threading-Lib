@@ -168,6 +168,20 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     return EXIT_SUCCESS;
 }
 
+// Internal tiny function
+// This function should not be used in cased of an empty thread_list
+int swap_from_n_to_head_thread(struct node *n)
+{
+
+    struct node *new_n = get_head(thread_list);
+    if (new_n->next)
+    {
+        new_n->uc->uc_link = new_n->next->uc;
+    }
+
+    return swapcontext(n->uc, new_n->uc);
+}
+
 // Gives execution to the next thread in queue
 int thread_yield()
 {
@@ -189,15 +203,7 @@ int thread_yield()
     struct node *n = pop_head(thread_list);
     add_tail(thread_list, n);
 
-    struct node *new_n = get_head(thread_list);
-    if (new_n->next)
-    {
-        new_n->uc->uc_link = new_n->next->uc;
-    }
-
-    swapcontext(n->uc, new_n->uc);
-
-    return EXIT_SUCCESS;
+    return swap_from_n_to_head_thread(n);
 }
 
 /* attendre la fin d'exécution d'un thread.
@@ -206,10 +212,19 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    while (!thread->dirty)
+    // Putting the waiting thread into the given thread waiters_queue
+    if (!thread->dirty)
     {
-        thread_yield();
+        struct node *n = pop_head(thread_list);
+        if (thread->waiters_queue == NULL)
+        {
+            thread->waiters_queue = new_queue();
+        }
+        add_tail(thread->waiters_queue, n);
+        swap_from_n_to_head_thread(n);
     }
+    // From now on, thread->dirty should be equal to 1
+    // (Thanks to the waiters queue functionality, see thread_exit() for more informations)
 
     if (retval)
     {
@@ -238,6 +253,17 @@ void thread_exit(void *retval)
 
     add_tail(dirty_thread_list, n);
 
+    // Waiters queue functionality
+    // All threads that called thread_join will be put on the waiters_queue of this thread (and out of the classic thread_list)
+    // And when this thread call thread_exit, waiters are put back into thread_list
+    if (n->waiters_queue)
+    {
+        append_queue(thread_list, n->waiters_queue);
+        free(n->waiters_queue);
+        n->waiters_queue = NULL;
+    }
+
+    // Swapping context to the cleaner_context in order to clean the remaining unusable stack
     swapcontext(n->uc, cleaner_context);
 
     // We access this only if the main thread is joined by another one -> but we still need to go back to it to properly end the process

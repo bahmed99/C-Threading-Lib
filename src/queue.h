@@ -16,6 +16,8 @@ struct node
 	void *retval;
 	int dirty;
 	int valgrind_stackid;
+
+	struct queue *waiters_queue;
 };
 
 void add_tail(struct queue *q, struct node *n);
@@ -31,6 +33,8 @@ struct node *pop_head(struct queue *q);
 void remove_node(struct queue *q, struct node *n);
 
 int queue_empty(struct queue *q);
+
+void append_queue(struct queue *q1, struct queue *q2);
 
 struct queue* new_queue();
 void free_queue(struct queue *q);

@@ -87,6 +87,19 @@ int queue_empty(struct queue *q)
 	return q->head == NULL;
 }
 
+// Appending q2 to the end of q1
+void append_queue(struct queue *q1, struct queue *q2)
+{
+	if(queue_empty(q1)) {
+		q1->head = q2->head;
+		q1->tail = q2->tail;
+		return;
+	}
+
+	q1->tail->next = q2->head;
+	q1->tail = q2->tail;
+}
+
 struct node *new_node(ucontext_t *context)
 {
 	struct node *n = malloc(sizeof(struct node));
@@ -94,6 +107,8 @@ struct node *new_node(ucontext_t *context)
 	n->dirty = 0;
 	n->retval = NULL;
 	n->next = NULL;
+	n->valgrind_stackid = 0;
+	n->waiters_queue = NULL;
 	return n;
 }
 
@@ -109,6 +124,7 @@ void free_node(struct node *n)
 		free(n->uc->uc_stack.ss_sp);
 		free(n->uc);
 	}
+	if(n->waiters_queue) free_queue(n->waiters_queue); // UNLIKELY TO HAPPEN
 	free(n);
 }
 
