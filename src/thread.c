@@ -303,24 +303,17 @@ int thread_mutex_destroy(thread_mutex_t *mutex)
 
 int thread_mutex_lock(thread_mutex_t *mutex)
 {
-    struct node *current_thread = get_head(thread_list);
 
     if (mutex->owner)
     {
+        struct node *current_thread = pop_head(thread_list);
 
         add_tail(mutex->waiting_mutex, current_thread);
-
-        while (mutex->owner != current_thread)
-        {
-            remove_node(thread_list, current_thread);
-            remove_node(thread_list, mutex->owner);
-            add_head(thread_list, mutex->owner);
-            swapcontext(current_thread->uc, mutex->owner->uc);
-        }
+        swap_from_n_to_head_thread(current_thread);
     }
     else
     {
-        mutex->owner = current_thread;
+        mutex->owner = get_head(thread_list);
     }
 }
 
