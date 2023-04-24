@@ -12,6 +12,7 @@ struct queue
 struct node
 {
 	struct node *next;
+	struct node *prec;
 	ucontext_t *uc;
 	void *retval;
 	int dirty;

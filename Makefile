@@ -79,4 +79,4 @@ create_dirs:
 clean:
 	@rm -rf $(INSTALL_DIR) $(BUILD_DIR)
 
-.PHONY: all install pthreads check graph valgrind slow_v_check
+.PHONY: create_dirs all install pthreads check graph valgrind slow_v_check
