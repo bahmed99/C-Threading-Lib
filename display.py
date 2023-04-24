@@ -58,6 +58,8 @@ class PLot_performence():
 
                 plt.plot(difftime)
                 plt.title("diff time (ns)")
+                figManager = plt.get_current_fig_manager()
+                figManager.resize(5000,5000)
                 plt.show()
                 
         # plot the curves of evolution of the performence time in function of the parameter indice for  the program exemple
@@ -85,6 +87,8 @@ class PLot_performence():
 
                 plt.plot(list_test_args,difftime,'-*r')
                 plt.title("diff time (ns)")
+                figManager = plt.get_current_fig_manager()
+                figManager.resize(5000,5000)
                 plt.show()
 
         def plot_multi_exec(self,exemple,args=[""],nb_execution=50):
@@ -108,6 +112,8 @@ class PLot_performence():
 
                 plt.plot(difftime,'-*r')
                 plt.title("diff time (ns)")
+                figManager = plt.get_current_fig_manager()
+                figManager.resize(5000,5000)
                 plt.show()
 
 
@@ -121,8 +127,9 @@ class PLot_performence():
       
 plot=PLot_performence()
 
-if len(sys.argv) > 2:
+if len(sys.argv) != 2:
     print( "error: too much argument, pls enter the name of the test, or run all for run all the performence tests")
+    exit()
 else:
     test_name= sys.argv[1]
     match test_name:
@@ -157,7 +164,7 @@ else:
         case "33-switch-many-cascade":
                 plot.plot_exec_time_in_fonction_of_arg("33-switch-many-cascade ",indice= 0,list_initial_args=["0","10"],list_test_args=[str(500*i) for i in range(20)])
                 plot.plot_exec_time_in_fonction_of_arg("33-switch-many-cascade ",indice= 1,list_initial_args=["10","0"],list_test_args=[str(500*i) for i in range(20)])
-        case "run all":
+        case "run_all":
                 # run all test without parameters
                 ##plot.plot_all_exec_time()
 
