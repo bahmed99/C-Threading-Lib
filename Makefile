@@ -19,7 +19,7 @@ NC=\033[0m
 
 all: install 
 
-install: $(BINS)
+install: clean $(BINS)
 
 pthreads: create_dirs 
 	@for f in $(BINS) ; do \
