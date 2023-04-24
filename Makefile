@@ -77,6 +77,6 @@ create_dirs:
 	@mkdir -p $(BIN_DIR) $(B_LIB_DIR)
 
 clean:
-	@rm -rf $(INSTALL_DIR) $(BUILD_DIR)
+	@rm -rf $(INSTALL_DIR) $(BUILD_DIR) ; echo "Files Cleaned !"
 
 .PHONY: create_dirs all install pthreads check graph valgrind slow_v_check
