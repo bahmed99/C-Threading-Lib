@@ -38,7 +38,7 @@ check: $(BINS)
 	done
 
 graph:
-	@echo "graph"
+	@python3 display.py run_all
 
 valgrind: install
 	@for f in $(BINS_EXEC) ; do \
