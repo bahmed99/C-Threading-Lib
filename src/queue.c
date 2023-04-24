@@ -105,13 +105,13 @@ void remove_node(struct queue *q, struct node *n)
 
 int queue_empty(struct queue *q)
 {
-	return q->head == NULL; // || q->tail == NULL; This part is useless in theory (if user don't mess the struct queue)
+	return !q || q->head == NULL; // || q->tail == NULL; This part is useless in theory (if user don't mess the struct queue)
 }
 
 // Appending q2 to the end of q1
 void append_queue(struct queue *q1, struct queue *q2)
 {
-	if (queue_empty(q2))
+	if(queue_empty(q2))
 		return;
 
 	if (queue_empty(q1))
@@ -171,4 +171,32 @@ struct queue *new_queue()
 	q->head = NULL;
 	q->tail = NULL;
 	return q;
+}
+
+
+int detect_deallock(struct node* n) {
+
+	struct queue* to_visit = new_queue();
+
+	struct node* current = n;
+
+
+	while(current) {
+		append_queue(to_visit, n->waiters_queue);
+
+		if(queue_empty(to_visit)) {
+
+			return 0;
+		}
+
+		current = pop_head(to_visit);
+		if(current == n) {
+			return 1;
+		}
+	}
+
+	//Not expected behaviour
+	printf("Result not expected in %s\n", __func__);
+	return 0;
+
 }
