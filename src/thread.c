@@ -75,7 +75,7 @@ void thread_init_if_necessary()
 
     // Setup the main context and allocates memory for its stack (and indicated valgrind that we do so)
     main_context->uc_link = NULL;
-    main_context->uc_stack.ss_size = STACK_SIZE;
+    main_context->uc_stack.ss_size = 1024;
     main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
     main_valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp, main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
     n->valgrind_stackid = main_valgrind_stackid;
