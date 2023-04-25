@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 
     us = (tv2.tv_sec - tv1.tv_sec) * 1000000 + (tv2.tv_usec - tv1.tv_usec);
 
-    printf("Le tri par insertion est effectué avec %s en %ld us\n", checkSort(arr, size) ? "success" : "echec", us);
+    printf("Le tri rapide est effectué avec %s en %ld us\n", checkSort(arr, size) ? "success" : "echec", us);
 
     free(arr);
     return 0;
