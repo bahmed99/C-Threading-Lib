@@ -29,6 +29,7 @@ struct queue *dirty_thread_list;
 // We need to store the main context in order to free it while exiting the program
 ucontext_t *main_context;
 int main_valgrind_stackid;
+int main_thread_joined = 0;
 
 // The cleaner context is used in pairs with the cleaner_context_function() in order to free context and stack from a dirty thread
 ucontext_t *cleaner_context;
@@ -49,6 +50,11 @@ void clean_last_dirty_thread()
             free(to_clean->uc->uc_stack.ss_sp);
             free(to_clean->uc);
             to_clean->uc = NULL;
+        }
+        else
+        {
+            // printf("MAIN THREAD JOINED\n");
+            main_thread_joined = 1;
         }
     }
 }
@@ -283,10 +289,16 @@ void thread_exit(void *retval)
         n->waiters_queue = NULL;
     }
 
-    // Swapping context to the cleaner_context in order to clean the remaining unusable stack
-    swapcontext(n->uc, cleaner_context);
-
-    clean_last_dirty_thread();
+    struct node *new_n = get_head(thread_list);
+    if (new_n)
+    {
+        link_and_context_swap(n, new_n);
+    }
+    else if (main_thread_joined)
+    {
+        // No thread to execute so we execute the main_context that should be inside thread_exit() method
+        setcontext(main_context);
+    }
 
     // We access this only if the main thread is joined by another one -> but we still need to go back to it to properly end the process
     exit(0);
