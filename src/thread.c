@@ -180,26 +180,17 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     return EXIT_SUCCESS;
 }
 
-// Internal tiny function
-// This function should not be used in cased of an empty thread_list
-int swap_from_n_to_head_thread(struct node *n)
+// Internal tiny function that links the dst thread to it's next if it has one
+int link_and_context_swap(struct node *src, struct node *dst)
 {
-    struct node *new_n = get_head(thread_list);
-    // printf("YY1??\n");
-    if (new_n->next)
+    if (dst->next)
     {
-        new_n->uc->uc_link = new_n->next->uc;
+        dst->uc->uc_link = dst->next->uc;
     }
-    // printf("YY2??\n");
 
-    int res = swapcontext(n->uc, new_n->uc);
+    int res = swapcontext(src->uc, dst->uc);
 
-    // if (!queue_empty(dirty_thread_list))
-    // {
-        // printf("-> %p | %p\n", to_clean->uc, to_clean->uc->uc_stack);
-        // printf("-> %p\n", get_tail(dirty_thread_list)->uc);
-        clean_last_dirty_thread();
-    // }
+    clean_last_dirty_thread();
 
     return res;
 }
@@ -225,7 +216,7 @@ int thread_yield()
     struct node *n = pop_head(thread_list);
     add_tail(thread_list, n);
 
-    return swap_from_n_to_head_thread(n);
+    return link_and_context_swap(n, get_head(thread_list));
 }
 
 /* attendre la fin d'exécution d'un thread.
@@ -249,7 +240,7 @@ int thread_join(thread_t thread, void **retval)
         }
         add_tail(thread->waiters_queue, n);
 
-        swap_from_n_to_head_thread(n);
+        link_and_context_swap(n, get_head(thread_list));
     }
 
     // From now on, thread->dirty should be equal to 1
@@ -341,7 +332,7 @@ int thread_mutex_lock(thread_mutex_t *mutex)
         struct node *current_thread = pop_head(thread_list);
 
         add_tail(mutex->waiting_mutex, current_thread);
-        swap_from_n_to_head_thread(current_thread);
+        link_and_context_swap(current_thread, get_head(thread_list));
     }
     else
     {
