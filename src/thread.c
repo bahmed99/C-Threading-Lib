@@ -34,6 +34,25 @@ int main_valgrind_stackid;
 ucontext_t *cleaner_context;
 int cleaner_valgrind_stackid;
 
+void clean_last_dirty_thread()
+{
+    if (!queue_empty(dirty_thread_list))
+    {
+        // Get the last thread that called thread_exit()
+        struct node *to_clean = get_tail(dirty_thread_list);
+        // printf("-> %p | %p\n", to_clean->uc, to_clean->uc->uc_stack);
+
+        // We need to make sure that we are not freeing main context
+        if (main_context != to_clean->uc && NULL != to_clean->uc)
+        {
+            VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
+            free(to_clean->uc->uc_stack.ss_sp);
+            free(to_clean->uc);
+            to_clean->uc = NULL;
+        }
+    }
+}
+
 // Only one loop step of this function should be executed each time we setcontext(cleaner_context)
 // It will free the context and stack from the last added thread to dirty_thread_list
 // (ie the last thread that returned or called thread_exit -> almost the same thing thanks to our thread_func_wrapper())
@@ -41,16 +60,7 @@ void cleaner_context_function()
 {
     for (;;)
     {
-        // Get the last thread that called thread_exit()
-        struct node *to_clean = get_tail(dirty_thread_list);
-
-        // We need to make sure that we are not freeing main context
-        if (main_context != to_clean->uc)
-        {
-            VALGRIND_STACK_DEREGISTER(to_clean->valgrind_stackid);
-            free(to_clean->uc->uc_stack.ss_sp);
-            free(to_clean->uc);
-        }
+        // clean_last_dirty_thread();
 
         // Get the next thread to execute
         struct node *new_n = get_head(thread_list);
@@ -128,6 +138,8 @@ thread_t thread_self()
 // This function is used to wrap any function given to thread_create in order to make sure that they call thread_exit
 void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
+    clean_last_dirty_thread();
+
     void *retval = func(funcarg);
     thread_exit(retval);
 
@@ -180,7 +192,16 @@ int swap_from_n_to_head_thread(struct node *n)
     }
     // printf("YY2??\n");
 
-    return swapcontext(n->uc, new_n->uc);
+    int res = swapcontext(n->uc, new_n->uc);
+
+    // if (!queue_empty(dirty_thread_list))
+    // {
+        // printf("-> %p | %p\n", to_clean->uc, to_clean->uc->uc_stack);
+        // printf("-> %p\n", get_tail(dirty_thread_list)->uc);
+        clean_last_dirty_thread();
+    // }
+
+    return res;
 }
 
 // Gives execution to the next thread in queue
@@ -273,6 +294,8 @@ void thread_exit(void *retval)
 
     // Swapping context to the cleaner_context in order to clean the remaining unusable stack
     swapcontext(n->uc, cleaner_context);
+
+    clean_last_dirty_thread();
 
     // We access this only if the main thread is joined by another one -> but we still need to go back to it to properly end the process
     exit(0);
