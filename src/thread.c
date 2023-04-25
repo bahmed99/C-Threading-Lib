@@ -211,6 +211,11 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
+    if(detect_deallock(thread)) {
+        return -1;
+    }
+
+
     // Putting the waiting thread into the given thread waiters_queue
     if (!thread->dirty)
     {
@@ -220,8 +225,10 @@ int thread_join(thread_t thread, void **retval)
             thread->waiters_queue = new_queue();
         }
         add_tail(thread->waiters_queue, n);
+
         swap_from_n_to_head_thread(n);
     }
+
     // From now on, thread->dirty should be equal to 1
     // (Thanks to the waiters queue functionality, see thread_exit() for more informations)
 
@@ -229,6 +236,7 @@ int thread_join(thread_t thread, void **retval)
     {
         *retval = thread->retval;
     }
+
 
     remove_node(dirty_thread_list, thread);
     free(thread);
