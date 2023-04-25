@@ -174,23 +174,23 @@ struct queue *new_queue()
 }
 
 
-int detect_deallock(struct node* n) {
+int detect_deallock(struct node* src, struct node* dest) {
 
 	struct queue* to_visit = new_queue();
 
-	struct node* current = n;
-
+	struct node* current = src;
 
 	while(current) {
-		append_queue(to_visit, n->waiters_queue);
+		append_queue(to_visit, current->waiters_queue);
 
 		if(queue_empty(to_visit)) {
-
+			free(to_visit);
 			return 0;
 		}
 
 		current = pop_head(to_visit);
-		if(current == n) {
+		if(current == dest) {
+			free(to_visit);
 			return 1;
 		}
 	}

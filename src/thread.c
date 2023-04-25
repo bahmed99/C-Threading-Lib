@@ -173,10 +173,12 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 int swap_from_n_to_head_thread(struct node *n)
 {
     struct node *new_n = get_head(thread_list);
+    // printf("YY1??\n");
     if (new_n->next)
     {
         new_n->uc->uc_link = new_n->next->uc;
     }
+    // printf("YY2??\n");
 
     return swapcontext(n->uc, new_n->uc);
 }
@@ -211,10 +213,10 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    if(detect_deallock(thread)) {
+    if (detect_deallock(get_head(thread_list), thread))
+    {
         return -1;
     }
-
 
     // Putting the waiting thread into the given thread waiters_queue
     if (!thread->dirty)
@@ -236,7 +238,6 @@ int thread_join(thread_t thread, void **retval)
     {
         *retval = thread->retval;
     }
-
 
     remove_node(dirty_thread_list, thread);
     free(thread);
