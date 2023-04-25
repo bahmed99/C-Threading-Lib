@@ -158,7 +158,6 @@ void free_node(struct node *n)
 
 void free_queue(struct queue *q)
 {
-	// printf("Please implements %s\n", __func__);
 	if (!q)
 		return;
 	free_node(q->head);
@@ -174,8 +173,7 @@ struct queue *new_queue()
 }
 
 
-int detect_deallock(struct node* src, struct node* dest) {
-
+int detect_deadlock(struct node* src, struct node* dest) {
 	struct queue* to_visit = new_queue();
 
 	struct node* current = src;
@@ -195,8 +193,7 @@ int detect_deallock(struct node* src, struct node* dest) {
 		}
 	}
 
-	//Not expected behaviour
+	// Unexpected behaviour
 	printf("Result not expected in %s\n", __func__);
 	return 0;
-
 }

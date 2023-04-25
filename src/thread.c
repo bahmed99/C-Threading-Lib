@@ -186,7 +186,7 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    if (detect_deallock(get_head(thread_list), thread))
+    if (detect_deadlock(get_head(thread_list), thread))
     {
         return -1;
     }

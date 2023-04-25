@@ -43,6 +43,6 @@ void free_queue(struct queue *q);
 struct node *new_node(ucontext_t *context);
 void free_node(struct node *n);
 
-int detect_deallock(struct node*, struct node*);
+int detect_deadlock(struct node*, struct node*);
 
 #endif //!__QUEUE_H__
