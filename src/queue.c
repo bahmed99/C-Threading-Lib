@@ -111,7 +111,7 @@ int queue_empty(struct queue *q)
 // Appending q2 to the end of q1
 void append_queue(struct queue *q1, struct queue *q2)
 {
-	if(queue_empty(q2))
+	if (queue_empty(q2))
 		return;
 
 	if (queue_empty(q1))
@@ -145,12 +145,7 @@ void free_node(struct node *n)
 		return;
 
 	free_node(n->next);
-	if (!n->dirty && n->uc != main_context)
-	{
-		VALGRIND_STACK_DEREGISTER(n->valgrind_stackid);
-		free(n->uc->uc_stack.ss_sp);
-		free(n->uc);
-	}
+	
 	if (n->waiters_queue)
 		free_queue(n->waiters_queue); // UNLIKELY TO HAPPEN
 	free(n);
@@ -172,22 +167,25 @@ struct queue *new_queue()
 	return q;
 }
 
+int detect_deadlock(struct node *src, struct node *dest)
+{
+	struct queue *to_visit = new_queue();
 
-int detect_deadlock(struct node* src, struct node* dest) {
-	struct queue* to_visit = new_queue();
+	struct node *current = src;
 
-	struct node* current = src;
-
-	while(current) {
+	while (current)
+	{
 		append_queue(to_visit, current->waiters_queue);
 
-		if(queue_empty(to_visit)) {
+		if (queue_empty(to_visit))
+		{
 			free(to_visit);
 			return 0;
 		}
 
 		current = pop_head(to_visit);
-		if(current == dest) {
+		if (current == dest)
+		{
 			free(to_visit);
 			return 1;
 		}
