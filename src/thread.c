@@ -6,7 +6,7 @@
 #include <signal.h>
 #include <valgrind/valgrind.h>
 
-#define STACK_SIZE 1024 * 16
+#define STACK_SIZE 1024 * 12
 
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
