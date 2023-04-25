@@ -31,10 +31,6 @@ ucontext_t *main_context;
 int main_valgrind_stackid;
 int main_thread_joined = 0;
 
-// The cleaner context is used in pairs with the cleaner_context_function() in order to free context and stack from a dirty thread
-ucontext_t *cleaner_context;
-int cleaner_valgrind_stackid;
-
 void clean_last_dirty_thread()
 {
     if (!queue_empty(dirty_thread_list))
@@ -55,34 +51,6 @@ void clean_last_dirty_thread()
         {
             // printf("MAIN THREAD JOINED\n");
             main_thread_joined = 1;
-        }
-    }
-}
-
-// Only one loop step of this function should be executed each time we setcontext(cleaner_context)
-// It will free the context and stack from the last added thread to dirty_thread_list
-// (ie the last thread that returned or called thread_exit -> almost the same thing thanks to our thread_func_wrapper())
-void cleaner_context_function()
-{
-    for (;;)
-    {
-        // clean_last_dirty_thread();
-
-        // Get the next thread to execute
-        struct node *new_n = get_head(thread_list);
-        if (new_n)
-        {
-            // We link the second thread in our thread list to uc_link
-            if (new_n->next)
-            {
-                new_n->uc->uc_link = new_n->next->uc;
-            }
-            swapcontext(cleaner_context, new_n->uc);
-        }
-        else
-        {
-            // No thread to execute so we execute the main_context that should be inside thread_exit() method
-            setcontext(main_context);
         }
     }
 }
@@ -115,19 +83,6 @@ void thread_init_if_necessary()
     // Add the main_thread_node to the thread list
     // -> The main thread is at this point the only and currently executed thread
     add_tail(thread_list, n);
-
-    // Initialize cleaner context
-    // (we don't need a node for it since this context won't be stored as a classic thread in our lists)
-    cleaner_context = malloc(sizeof(ucontext_t));
-    getcontext(cleaner_context);
-    // As for main_context we allocates memory for the cleaner context stack
-    cleaner_context->uc_link = NULL;
-    cleaner_context->uc_stack.ss_size = 1024;
-    cleaner_context->uc_stack.ss_sp = malloc(cleaner_context->uc_stack.ss_size);
-    cleaner_valgrind_stackid = VALGRIND_STACK_REGISTER(cleaner_context->uc_stack.ss_sp, cleaner_context->uc_stack.ss_sp + cleaner_context->uc_stack.ss_size);
-
-    // Associates the cleaner_context_function to the cleaner context
-    makecontext(cleaner_context, cleaner_context_function, 0);
 
     // Set thread_clean() as a function to be executed by the program exiting
     atexit(thread_clean);
@@ -311,10 +266,6 @@ void thread_clean()
 
     free_queue(thread_list);
     free_queue(dirty_thread_list);
-
-    VALGRIND_STACK_DEREGISTER(cleaner_valgrind_stackid);
-    free(cleaner_context->uc_stack.ss_sp);
-    free(cleaner_context);
 
     VALGRIND_STACK_DEREGISTER(main_valgrind_stackid);
     free(main_context->uc_stack.ss_sp);
