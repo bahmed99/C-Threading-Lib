@@ -7,8 +7,6 @@
 
 void add_tail(struct queue *q, struct node *n)
 {
-	// printf("ADDED to QUEUE %p\n", n);
-	// printf("QUEUE TAIL :%p\n", q->tail);
 	if (q->tail)
 		q->tail->next = n;
 	else
@@ -16,7 +14,6 @@ void add_tail(struct queue *q, struct node *n)
 
 	n->prec = q->tail;
 	q->tail = n;
-	// printf("QUEUE HEAD TAIL :%p %p\n", q->head, q->tail);
 }
 
 void add_head(struct queue *q, struct node *n)
@@ -136,6 +133,7 @@ struct node *new_node(ucontext_t *context)
 	n->prec = NULL;
 	n->valgrind_stackid = 0;
 	n->waiters_queue = NULL;
+	// printf("%s: %p\n", __func__, n);
 	return n;
 }
 
@@ -145,7 +143,7 @@ void free_node(struct node *n)
 		return;
 
 	free_node(n->next);
-	
+
 	if (n->waiters_queue)
 		free_queue(n->waiters_queue); // UNLIKELY TO HAPPEN
 	free(n);
