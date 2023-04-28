@@ -136,17 +136,11 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     return EXIT_SUCCESS;
 }
 
-// Internal tiny function that links the dst thread to it's next if it has one
-int link_and_context_swap(struct node *src, struct node *dst)
-{
-
-    return swapcontext(src->uc, dst->uc);
-}
 
 // Call link_and_context_swap and clean_last_dirty_thread
 int link_and_context_swap_clean(struct node *src, struct node *dst)
 {
-    int res = link_and_context_swap(src, dst);
+    int res = swapcontext(src->uc, dst->uc);
 
     clean_last_dirty_thread();
 
@@ -243,7 +237,7 @@ void thread_exit(void *retval)
     struct node *new_n = get_head(thread_list);
     if (new_n)
     {
-        link_and_context_swap(n, new_n);
+        swapcontext(n->uc, new_n->uc);
         printf("?????^,\n");
     }
     else if (main_thread_joined)
