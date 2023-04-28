@@ -17,11 +17,10 @@ int is_init = 0;
 struct queue *thread_list;
 
 // We describe as dirty a thread that returned a value with the "return" keyword or the thread_exit() function
-// A thread in this queue has always his dirty property to 1
-// Threads in this queue has a freed context and freed stack (ss_sp) except for the main context
+// We use this variable to store the last dirty thread in order to free its context and stack
+// (we don't do it if it's the main context)
 // -> Indeed, the main context is a bit special because usually the current context can't free his own stack without causing invalid reads
 // But it seems that the main context can -> well played to him
-// struct queue *dirty_thread_list;
 struct node *dirty_thread;
 
 // We associate for each context (main, cleaner and all those in struct node*) a valgrind_stackid
@@ -42,13 +41,8 @@ void free_context(struct node *n)
 
 void clean_last_dirty_thread()
 {
-    // if (!queue_empty(dirty_thread_list))
     if (dirty_thread)
     {
-        // Get the last thread that called thread_exit()
-        // struct node *to_clean = get_tail(dirty_thread_list);
-        // printf("-> %p | %p\n", to_clean->uc, to_clean->uc->uc_stack);
-
         // We need to make sure that we are not freeing main context
         // if (main_context != to_clean->uc && NULL != to_clean->uc)
         if (main_context != dirty_thread->uc)
@@ -57,7 +51,6 @@ void clean_last_dirty_thread()
         }
         else
         {
-            // printf("MAIN THREAD JOINED\n");
             main_thread_joined = 1;
         }
         dirty_thread = NULL;
@@ -73,9 +66,8 @@ void thread_init_if_necessary()
     }
     is_init = 1;
 
-    // Initialize the two thread queues
+    // Initialize the thread queue
     thread_list = new_queue();
-    // dirty_thread_list = new_queue();
 
     // Initialize main context and its associated node
     main_context = malloc(sizeof(ucontext_t));
@@ -217,8 +209,6 @@ int thread_join(thread_t thread, void **retval)
         *retval = thread->retval;
     }
 
-    // remove_node(dirty_thread_list, thread);
-    // printf("%s: %p\n", __func__, thread);
     free(thread);
 
     return EXIT_SUCCESS;
@@ -238,8 +228,6 @@ void thread_exit(void *retval)
     n->retval = retval;
     n->dirty = 1;
 
-    // add_tail(dirty_thread_list, n);
-    // printf("Old Dirty Thread: %p | New Dirty Thread: %p\n", dirty_thread, n);
     dirty_thread = n;
 
     // Waiters queue functionality
@@ -273,9 +261,6 @@ void thread_clean()
     if (!is_init)
         return;
 
-    // printf("End dirty thread: %p\n", dirty_thread);
-    // printf("MAIN JOINED? %d\n", main_thread_joined);
-    // printf("thread list %p\n", thread_list->head);
     free_queue(thread_list);
 
     if (main_thread_joined)
