@@ -12,17 +12,16 @@
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
 
-#if SCHEDULING_POLICY == 1
-// This array will contains at index i a queue of threads list with the priority i
-struct queue* threads_priority_array[10];
-int currrent_highest_priority = 0;
-
-#endif
-
+#if SCHEDULING_POLICY == 0
 // This queue store the current threads
 // They are ordered by scheduling order
 // So the first one in the queue is the currently running thread
 struct queue *thread_list;
+#elif SCHEDULING_POLICY == 1
+// This array will contains at index i a queue of threads list with the priority i
+struct queue* threads_priority_array[10];
+int currrent_highest_priority = 0;
+#endif
 
 // We describe as dirty a thread that returned a value with the "return" keyword or the thread_exit() function
 // We use this variable to store the last dirty thread in order to free its context and stack
@@ -93,11 +92,13 @@ void append_queue_to_queue(struct queue* src) {
     append_queue(thread_list, src);
 }
 
+void free_threads() {
+    free_queue(thread_list);
+}
 
 #elif SCHEDULING_POLICY == 1
 void init_thread_lists()
 {
-    thread_list = new_queue();
     for (size_t i = 0; i < 10; i++)
     {
         threads_priority_array[i] = new_queue();
@@ -129,6 +130,12 @@ struct node* pop_queue_head() {
 
 void append_queue_to_queue(struct queue* src) {
     append_queue(threads_priority_array[currrent_highest_priority], src);
+}
+
+void free_threads() {
+    for(int i = 0; i < 10; i++) {
+        free_queue(threads_priority_array[i]);
+    }
 }
 
 #endif
@@ -173,7 +180,7 @@ thread_t thread_self()
     thread_init_if_necessary();
 
     // The currently executed thread is the first one in thread_list
-    return get_head(thread_list);
+    return get_queue_head();
 }
 
 // This function is used to wrap any function given to thread_create in order to make sure that they call thread_exit
@@ -227,7 +234,7 @@ int thread_yield()
         return EXIT_SUCCESS;
     }
 
-    struct node *n = pop_queue_head(thread_list);
+    struct node *n = pop_queue_head();
     append_node_to_queue(n);
     int res = swapcontext(n->uc, get_queue_head()->uc);
     clean_last_dirty_thread();
@@ -255,7 +262,7 @@ int thread_join(thread_t thread, void **retval)
         }
         add_tail(thread->waiters_queue, n);
 
-        swapcontext(n->uc, get_head(thread_list)->uc);
+        swapcontext(n->uc, get_queue_head()->uc);
         clean_last_dirty_thread();
     }
 
@@ -282,7 +289,7 @@ int thread_join(thread_t thread, void **retval)
  */
 void thread_exit(void *retval)
 {
-    struct node *n = pop_head(thread_list);
+    struct node *n = pop_queue_head();
     n->retval = retval;
     n->dirty = 1;
 
@@ -319,7 +326,7 @@ void thread_clean()
     if (!is_init)
         return;
 
-    free_queue(thread_list);
+    free_threads();
 
     if (main_thread_joined)
     {
@@ -356,15 +363,15 @@ int thread_mutex_lock(thread_mutex_t *mutex)
 
     if (mutex->owner)
     {
-        struct node *current_thread = pop_head(thread_list);
+        struct node *current_thread = pop_queue_head();
 
         add_tail(mutex->waiting_mutex, current_thread);
-        swapcontext(current_thread->uc, get_head(thread_list)->uc);
+        swapcontext(current_thread->uc, get_queue_head()->uc);
         clean_last_dirty_thread();
     }
     else
     {
-        mutex->owner = get_head(thread_list);
+        mutex->owner = get_queue_head();
     }
 }
 
@@ -374,7 +381,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex)
     if (!queue_empty(mutex->waiting_mutex))
     {
         struct node *head = pop_head(mutex->waiting_mutex);
-        add_tail(thread_list, head);
+        append_node_to_queue(head);
         mutex->owner = head;
     }
     else
