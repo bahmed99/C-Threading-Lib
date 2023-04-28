@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 import sys 
+import platform
 
 
 # exemple of execution : python3 display.py 01-main
@@ -11,6 +12,7 @@ class PLot_performence():
         def __init__(self,exemple="01-main ",args=[""]):
                 self.exemple= exemple
                 self.args = args # a list of string
+                self.machine= platform.machine()
 
         # return the execution time for pthread and thread in the current configuration
         def calcul_exec_time(self):
@@ -50,14 +52,18 @@ class PLot_performence():
                         difftime.append(pttime-ttime)
                 plt.figure("All test without args")
                 plt.subplot(1, 2, 1)
+                plt.xlabel("Number of the test")
+                plt.ylabel("Time (micro second)")
                 plt.plot(execorder,pthreadtime,label='pthread')
                 plt.plot(execorder,threadtime,label='thread')
                 plt.legend(loc='upper right')
-                plt.title("system time (ns)")
-                plt.subplot(1, 2, 2)
+                plt.title("system time by using time of python with the machine "+ self.machine)
 
+                plt.subplot(1, 2, 2)
                 plt.plot(difftime)
-                plt.title("diff time (ns)")
+                plt.title("Diff time (ns)")
+                plt.xlabel("Number of the test")
+                plt.ylabel("Time (micro second)")
                 figManager = plt.get_current_fig_manager()
                 figManager.resize(5000,5000)
                 plt.show()
@@ -81,12 +87,16 @@ class PLot_performence():
                 plt.subplot(1, 2, 1)
                 plt.plot(list_test_args,pthreadtime,'-*',label='pthread')
                 plt.plot(list_test_args,threadtime,'-*',label='thread')
+                plt.xlabel(" Value of the argument")
+                plt.ylabel(" Time (micro second)")
                 plt.legend(loc='upper right')
-                plt.title("system time (ns)")
+                plt.title("system time by using time of python with the machine "+ self.machine)
                 plt.subplot(1, 2, 2)
 
                 plt.plot(list_test_args,difftime,'-*r')
-                plt.title("diff time (ns)")
+                plt.title("Diff time")
+                plt.xlabel(" Value of the argument")
+                plt.ylabel(" Time (micro second)")
                 figManager = plt.get_current_fig_manager()
                 figManager.resize(5000,5000)
                 plt.show()
@@ -107,11 +117,15 @@ class PLot_performence():
                 plt.plot(pthreadtime,'-*',label='pthread')
                 plt.plot(threadtime,'-*',label='thread')
                 plt.legend(loc='upper right')
-                plt.title("system time (ns)")
+                plt.title("System time by using time of python with the machine "+ self.machine)
+                plt.xlabel(" Number of the execution")
+                plt.ylabel(" Time (micro second)")
                 plt.subplot(1, 2, 2)
 
                 plt.plot(difftime,'-*r')
-                plt.title("diff time (ns)")
+                plt.title("Diff time")
+                plt.xlabel(" Number of the execution")
+                plt.ylabel(" Time (micro second)")
                 figManager = plt.get_current_fig_manager()
                 figManager.resize(5000,5000)
                 plt.show()
