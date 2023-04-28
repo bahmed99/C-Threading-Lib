@@ -137,16 +137,6 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 }
 
 
-// Call link_and_context_swap and clean_last_dirty_thread
-int link_and_context_swap_clean(struct node *src, struct node *dst)
-{
-    int res = swapcontext(src->uc, dst->uc);
-
-    clean_last_dirty_thread();
-
-    return res;
-}
-
 // Gives execution to the next thread in queue
 int thread_yield()
 {
@@ -167,8 +157,9 @@ int thread_yield()
 
     struct node *n = pop_head(thread_list);
     add_tail(thread_list, n);
-
-    return link_and_context_swap_clean(n, get_head(thread_list));
+    int res = swapcontext(n->uc, get_head(thread_list)->uc);
+    clean_last_dirty_thread();
+    return res;
 }
 
 /* attendre la fin d'exécution d'un thread.
@@ -192,7 +183,8 @@ int thread_join(thread_t thread, void **retval)
         }
         add_tail(thread->waiters_queue, n);
 
-        link_and_context_swap_clean(n, get_head(thread_list));
+        swapcontext(n->uc, get_head(thread_list)->uc);
+        clean_last_dirty_thread();
     }
 
     // From now on, thread->dirty should be equal to 1
@@ -295,7 +287,8 @@ int thread_mutex_lock(thread_mutex_t *mutex)
         struct node *current_thread = pop_head(thread_list);
 
         add_tail(mutex->waiting_mutex, current_thread);
-        link_and_context_swap_clean(current_thread, get_head(thread_list));
+        swapcontext(current_thread->uc, get_head(thread_list)->uc);
+        clean_last_dirty_thread();
     }
     else
     {
