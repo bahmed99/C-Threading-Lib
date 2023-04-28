@@ -137,12 +137,6 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     // Returns the thread to the given location
     *newthread = n;
 
-    // Link the new thread to the one that created it (default behaviour for our implementation)
-    struct node *head = get_head(thread_list);
-    if (!head->next)
-    {
-        head->uc->uc_link = n->uc;
-    }
 
     // Add to the thread list as the last thread to execute
     add_tail(thread_list, n);
@@ -153,10 +147,6 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 // Internal tiny function that links the dst thread to it's next if it has one
 int link_and_context_swap(struct node *src, struct node *dst)
 {
-    if (dst->next)
-    {
-        dst->uc->uc_link = dst->next->uc;
-    }
 
     return swapcontext(src->uc, dst->uc);
 }
