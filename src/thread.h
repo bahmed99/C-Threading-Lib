@@ -1,3 +1,12 @@
+/**
+ * Scheduling policy
+ * 0: FIFO
+ * 1: PRIORITY
+*/
+#ifndef SCHEDULING_POLICY
+#define SCHEDULING_POLICY 0
+#endif
+
 #ifndef __THREAD_H__
 #define __THREAD_H__
 

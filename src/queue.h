@@ -17,6 +17,9 @@ struct node
 	void *retval;
 	int dirty;
 	int valgrind_stackid;
+#if SCHEDULING_POLICY == 1
+	int priority;
+#endif
 
 	struct queue *waiters_queue;
 };

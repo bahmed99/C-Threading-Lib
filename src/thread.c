@@ -6,10 +6,18 @@
 #include <signal.h>
 #include <valgrind/valgrind.h>
 
+
 #define STACK_SIZE 1024 * 12
 
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
+
+#if SCHEDULING_POLICY == 1
+// This array will contains at index i a queue of threads list with the priority i
+struct queue* threads_priority_array[10];
+int currrent_highest_priority = 0;
+
+#endif
 
 // This queue store the current threads
 // They are ordered by scheduling order
@@ -57,6 +65,77 @@ void clean_last_dirty_thread()
     }
 }
 
+
+
+#if SCHEDULING_POLICY == 0
+void append_node_to_queue(struct node* n) {
+    add_tail(thread_list, n);
+}
+
+void init_thread_lists()
+{
+    thread_list = new_queue();
+}
+
+struct node* create_thread_node(ucontext_t* context) {
+    return new_node(context);
+}
+
+struct node* get_queue_head() {
+    return get_head(thread_list);
+}
+
+struct node* pop_queue_head() {
+    return pop_head(thread_list);
+}
+
+void append_queue_to_queue(struct queue* src) {
+    append_queue(thread_list, src);
+}
+
+
+#elif SCHEDULING_POLICY == 1
+void init_thread_lists()
+{
+    thread_list = new_queue();
+    for (size_t i = 0; i < 10; i++)
+    {
+        threads_priority_array[i] = new_queue();
+    }
+    
+
+}
+
+void append_node_to_queue(struct node* n) {
+    add_tail(threads_priority_array[n->priority], n);
+}
+
+struct node* create_thread_node(ucontext_t* context) {
+    struct node* n = new_node(context);
+    n->priority = 0;
+
+    return n;
+
+}
+
+struct node* get_queue_head() {
+    return get_head(threads_priority_array[currrent_highest_priority]);
+}
+
+
+struct node* pop_queue_head() {
+    return pop_head(threads_priority_array[currrent_highest_priority]);
+}
+
+void append_queue_to_queue(struct queue* src) {
+    append_queue(threads_priority_array[currrent_highest_priority], src);
+}
+
+#endif
+
+
+
+
 // Initialize our library if it was not done before (this information is saved with is_init variable)
 void thread_init_if_necessary()
 {
@@ -66,13 +145,13 @@ void thread_init_if_necessary()
     }
     is_init = 1;
 
-    // Initialize the thread queue
-    thread_list = new_queue();
+    // Initialize the thread queue(s)
+    init_thread_lists();
 
     // Initialize main context and its associated node
     main_context = malloc(sizeof(ucontext_t));
     getcontext(main_context);
-    struct node *n = new_node(main_context);
+    struct node *n = create_thread_node(main_context);
 
     // Setup the main context and allocates memory for its stack (and indicated valgrind that we do so)
     main_context->uc_link = NULL;
@@ -83,7 +162,7 @@ void thread_init_if_necessary()
 
     // Add the main_thread_node to the thread list
     // -> The main thread is at this point the only and currently executed thread
-    add_tail(thread_list, n);
+    append_node_to_queue(n);
 
     // Set thread_clean() as a function to be executed by the program exiting
     atexit(thread_clean);
@@ -114,7 +193,7 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 
     // Creates the context and its associated node
     ucontext_t *current = malloc(sizeof(ucontext_t));
-    struct node *n = new_node(current);
+    struct node *n = create_thread_node(current);
 
     // Setup the context and allocates memory for its stack (and tell valgrind that we do so)
     getcontext(current);
@@ -131,7 +210,7 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 
 
     // Add to the thread list as the last thread to execute
-    add_tail(thread_list, n);
+    append_node_to_queue(n);
 
     return EXIT_SUCCESS;
 }
@@ -142,22 +221,15 @@ int thread_yield()
 {
     thread_init_if_necessary();
 
-    // This test should not pass in a normal execution (was useful for testing)
-    // We may delete it later for increased performance
-    if (queue_empty(thread_list))
-    {
-        return EXIT_FAILURE;
-    }
-
     // Little optimization -> don't yield if there is only one thread in our list (yielding to itself is useless)
-    if (!get_head(thread_list)->next)
+    if (!get_queue_head()->next)
     {
         return EXIT_SUCCESS;
     }
 
-    struct node *n = pop_head(thread_list);
-    add_tail(thread_list, n);
-    int res = swapcontext(n->uc, get_head(thread_list)->uc);
+    struct node *n = pop_queue_head(thread_list);
+    append_node_to_queue(n);
+    int res = swapcontext(n->uc, get_queue_head()->uc);
     clean_last_dirty_thread();
     return res;
 }
@@ -168,7 +240,7 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    if (detect_deadlock(get_head(thread_list), thread))
+    if (detect_deadlock(get_queue_head(), thread))
     {
         return -1;
     }
@@ -176,7 +248,7 @@ int thread_join(thread_t thread, void **retval)
     // Putting the waiting thread into the given thread waiters_queue
     if (!thread->dirty)
     {
-        struct node *n = pop_head(thread_list);
+        struct node *n = pop_queue_head();
         if (thread->waiters_queue == NULL)
         {
             thread->waiters_queue = new_queue();
@@ -221,12 +293,12 @@ void thread_exit(void *retval)
     // And when this thread call thread_exit, waiters are put back into thread_list
     if (n->waiters_queue)
     {
-        append_queue(thread_list, n->waiters_queue);
+        append_queue_to_queue(n->waiters_queue);
         free(n->waiters_queue);
         n->waiters_queue = NULL;
     }
 
-    struct node *new_n = get_head(thread_list);
+    struct node *new_n = get_queue_head();
     if (new_n)
     {
         swapcontext(n->uc, new_n->uc);
