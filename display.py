@@ -3,6 +3,13 @@ import os
 import time
 import sys 
 import platform
+import subprocess
+
+def get_processor_name():
+    command = 'cat /proc/cpuinfo'
+    return subprocess.check_output(command, shell=True).strip().split(b'\n')[4].split(b':')[1].strip().decode()
+
+
 
 
 # exemple of execution : python3 display.py 01-main
@@ -12,7 +19,7 @@ class PLot_performence():
         def __init__(self,exemple="01-main ",args=[""]):
                 self.exemple= exemple
                 self.args = args # a list of string
-                self.machine= platform.machine()
+                self.processor= get_processor_name()
 
         # return the execution time for pthread and thread in the current configuration
         def calcul_exec_time(self):
@@ -23,15 +30,15 @@ class PLot_performence():
                         args+=arg+" "
                 #thread
                 os.system("make "+ self.exemple + " >/dev/null 2>/dev/null")
-                time1=time.time_ns()
+                time1=time.time_ns()/1000
                 os.system("./install/bin/"+self.exemple + args + " >/dev/null 2>/dev/null")
-                time2=time.time_ns()
+                time2=time.time_ns()/1000
                 threadsystemtime = time2-time1
                 # pthread
                 os.system("make "+ self.exemple+ " >/dev/null 2>/dev/null")
-                time1=time.time_ns()
+                time1=time.time_ns()/1000
                 os.system("./install/bin/"+self.exemple + args + " >/dev/null 2>/dev/null")
-                time2=time.time_ns()
+                time2=time.time_ns()/1000
                 pthreadsystemtime = time2-time1
                 return threadsystemtime , pthreadsystemtime
         
@@ -57,7 +64,7 @@ class PLot_performence():
                 plt.plot(execorder,pthreadtime,label='pthread')
                 plt.plot(execorder,threadtime,label='thread')
                 plt.legend(loc='upper right')
-                plt.title("system time by using time of python with the machine "+ self.machine)
+                plt.title("system time by using time of python with the processor "+ self.processor)
 
                 plt.subplot(1, 2, 2)
                 plt.plot(difftime)
@@ -90,7 +97,7 @@ class PLot_performence():
                 plt.xlabel(" Value of the argument")
                 plt.ylabel(" Time (micro second)")
                 plt.legend(loc='upper right')
-                plt.title("system time by using time of python with the machine "+ self.machine)
+                plt.title("system time by using time of python with the processor "+ self.processor)
                 plt.subplot(1, 2, 2)
 
                 plt.plot(list_test_args,difftime,'-*r')
@@ -117,7 +124,7 @@ class PLot_performence():
                 plt.plot(pthreadtime,'-*',label='pthread')
                 plt.plot(threadtime,'-*',label='thread')
                 plt.legend(loc='upper right')
-                plt.title("System time by using time of python with the machine "+ self.machine)
+                plt.title("System time by using time of python with the processor "+ self.processor)
                 plt.xlabel(" Number of the execution")
                 plt.ylabel(" Time (micro second)")
                 plt.subplot(1, 2, 2)
@@ -140,6 +147,7 @@ class PLot_performence():
                 
       
 plot=PLot_performence()
+
 
 if len(sys.argv) != 2:
     print( "error: too much argument, pls enter the name of the test, or run all for run all the performence tests")
