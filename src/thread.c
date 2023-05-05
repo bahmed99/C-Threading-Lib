@@ -133,11 +133,7 @@ void append_queue_to_queue(struct queue* src) {
 }
 
 void free_threads() {
-    for(int i = 0; i < 10; i++) {
-        if(!queue_empty(threads_priority_array[i])) {
-            printf("Index: %d \n", i);
-            printf("Head: %p \n", get_queue_head(threads_priority_array[i]));
-        }
+    for(int i = 9; i >= 0; i--) {
         free_queue(threads_priority_array[i]);
     }
 }
@@ -146,7 +142,6 @@ void update_highest_priority() {
     while(queue_empty(threads_priority_array[currrent_highest_priority])) {
         currrent_highest_priority -= 1;
         if(currrent_highest_priority < 0) {
-            printf("Something wrong happenned ! \n");
             currrent_highest_priority = 0;
         }
     }
@@ -277,7 +272,7 @@ int thread_join(thread_t thread, void **retval)
         add_tail(thread->waiters_queue, n);
 
 #if SCHEDULING_POLICY == 1
-        remove_node(threads_priority_array[currrent_highest_priority], thread);
+        remove_node(threads_priority_array[thread->priority], thread);
         thread->priority = thread->priority == 9 ? 9 : thread->priority + 1;
         if(thread->priority > currrent_highest_priority) {
             currrent_highest_priority = thread->priority;

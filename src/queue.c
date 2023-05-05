@@ -61,32 +61,6 @@ void remove_node(struct queue *q, struct node *n)
 	if (!n || queue_empty(q))
 		return;
 
-	// OLD VERSION (REMOVE FROM SIMPLE CHAINED LIST)
-	// if (q->head == n)
-	// {
-	// 	q->head = q->head->next;
-	// 	if (q->tail == n)
-	// 	{ // If this is true, the queue is empty
-	// 		q->tail = NULL;
-	// 	}
-	// 	return;
-	// }
-
-	// struct node *tmp = q->head;
-	// while (tmp && tmp->next != n)
-	// {
-	// 	tmp = tmp->next;
-	// }
-	// if (!tmp)
-	// {
-	// 	// printf("[%s:%s] Error: Node not found in queue", __FILE__, __func__);
-	// 	return;
-	// }
-	// tmp->next = tmp->next->next;
-	// if (tmp->next == NULL)
-	// {
-	// 	q->tail = tmp;
-	// }
 
 	// Version for double chained list
 	if (n->prec)
