@@ -144,8 +144,10 @@ void free_node(struct node *n)
 
 	free_node(n->next);
 
-	if (n->waiters_queue)
+	if (n->waiters_queue) {
 		free_queue(n->waiters_queue); // UNLIKELY TO HAPPEN
+
+	}
 	free(n);
 }
 

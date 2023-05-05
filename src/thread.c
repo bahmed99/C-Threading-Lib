@@ -134,7 +134,21 @@ void append_queue_to_queue(struct queue* src) {
 
 void free_threads() {
     for(int i = 0; i < 10; i++) {
+        if(!queue_empty(threads_priority_array[i])) {
+            printf("Index: %d \n", i);
+            printf("Head: %p \n", get_queue_head(threads_priority_array[i]));
+        }
         free_queue(threads_priority_array[i]);
+    }
+}
+
+void update_highest_priority() {
+    while(queue_empty(threads_priority_array[currrent_highest_priority])) {
+        currrent_highest_priority -= 1;
+        if(currrent_highest_priority < 0) {
+            printf("Something wrong happenned ! \n");
+            currrent_highest_priority = 0;
+        }
     }
 }
 
@@ -186,9 +200,9 @@ thread_t thread_self()
 // This function is used to wrap any function given to thread_create in order to make sure that they call thread_exit
 void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
-    clean_last_dirty_thread();
-
+    //clean_last_dirty_thread();
     void *retval = func(funcarg);
+
     thread_exit(retval);
 
     return (void *)0xdeadbeef; // This line should not be executed but the compiler will happily read it
@@ -262,6 +276,15 @@ int thread_join(thread_t thread, void **retval)
         }
         add_tail(thread->waiters_queue, n);
 
+#if SCHEDULING_POLICY == 1
+        remove_node(threads_priority_array[currrent_highest_priority], thread);
+        thread->priority = thread->priority == 9 ? 9 : thread->priority + 1;
+        if(thread->priority > currrent_highest_priority) {
+            currrent_highest_priority = thread->priority;
+        }
+        append_node_to_queue(thread);
+#endif
+
         swapcontext(n->uc, get_queue_head()->uc);
         clean_last_dirty_thread();
     }
@@ -305,11 +328,13 @@ void thread_exit(void *retval)
         n->waiters_queue = NULL;
     }
 
+#if SCHEDULING_POLICY == 1
+    update_highest_priority();
+#endif
     struct node *new_n = get_queue_head();
     if (new_n)
     {
         swapcontext(n->uc, new_n->uc);
-        printf("?????^,\n");
     }
     else if (main_thread_joined)
     {
