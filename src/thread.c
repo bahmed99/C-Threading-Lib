@@ -351,6 +351,10 @@ void thread_clean()
 {
     if (!is_init)
         return;
+    if (dirty_thread)
+    {
+        free_context(dirty_thread);
+    }
 
     free_threads();
 
