@@ -36,7 +36,9 @@ int main()
   err = thread_create(&th2, thfunc2, NULL);
   assert(!err);
 
+
   err = thread_join(th, &res);
+
   assert(!err);
   assert(res == (void*) 0xdeadbeef);
 

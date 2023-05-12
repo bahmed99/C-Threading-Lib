@@ -109,6 +109,8 @@ void init_thread_lists()
     {
         threads_priority_array[i] = new_queue();
     }
+    exited_thread = new_queue();
+
 }
 
 void append_node_to_queue(struct node *n)
@@ -145,6 +147,7 @@ void free_threads()
     {
         free_queue(threads_priority_array[i]);
     }
+    free_queue(exited_thread);
 }
 
 void update_highest_priority()
@@ -155,6 +158,7 @@ void update_highest_priority()
         if (currrent_highest_priority < 0)
         {
             currrent_highest_priority = 0;
+            break;
         }
     }
 }
@@ -319,6 +323,10 @@ void thread_exit(void *retval)
 
     dirty_thread = n;
 
+#if SCHEDULING_POLICY == 1
+    update_highest_priority();
+#endif
+
     // Waiters queue functionality
     // All threads that called thread_join will be put on the waiters_queue of this thread (and out of the classic thread_list)
     // And when this thread call thread_exit, waiters are put back into thread_list
@@ -329,9 +337,6 @@ void thread_exit(void *retval)
         n->waiters_queue = NULL;
     }
 
-#if SCHEDULING_POLICY == 1
-    update_highest_priority();
-#endif
     struct node *new_n = get_queue_head();
     if (new_n)
     {
@@ -355,7 +360,6 @@ void thread_clean()
     {
         free_context(dirty_thread);
     }
-
     free_threads();
 
     VALGRIND_STACK_DEREGISTER(main_valgrind_stackid);
