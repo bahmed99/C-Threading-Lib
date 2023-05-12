@@ -116,7 +116,7 @@ void free_node(struct node *n)
 {
 	if (!n)
 		return;
-
+	// printf("%p\n", n);
 	free_node(n->next);
 
 	if (n->waiters_queue) {

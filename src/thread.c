@@ -204,7 +204,7 @@ thread_t thread_self()
 // This function is used to wrap any function given to thread_create in order to make sure that they call thread_exit
 void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
-    // clean_last_dirty_thread();
+    clean_last_dirty_thread();
     void *retval = func(funcarg);
 
     thread_exit(retval);
@@ -263,7 +263,6 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    struct node *n = get_queue_head();
     // if (detect_deadlock(n, thread))
     // {
     // return -1;
@@ -271,6 +270,7 @@ int thread_join(thread_t thread, void **retval)
     // Putting the waiting thread into the given thread waiters_queue
     if (!thread->dirty)
     {
+        struct node *n = pop_queue_head();
         if (thread->waiters_queue == NULL)
         {
             thread->waiters_queue = new_queue();
