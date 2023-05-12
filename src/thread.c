@@ -6,7 +6,6 @@
 #include <signal.h>
 #include <valgrind/valgrind.h>
 
-
 #define STACK_SIZE 1024 * 12
 
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
@@ -19,7 +18,7 @@ int is_init = 0;
 struct queue *thread_list;
 #elif SCHEDULING_POLICY == 1
 // This array will contains at index i a queue of threads list with the priority i
-struct queue* threads_priority_array[10];
+struct queue *threads_priority_array[10];
 int currrent_highest_priority = 0;
 #endif
 
@@ -29,6 +28,7 @@ int currrent_highest_priority = 0;
 // -> Indeed, the main context is a bit special because usually the current context can't free his own stack without causing invalid reads
 // But it seems that the main context can -> well played to him
 struct node *dirty_thread;
+struct queue *exited_thread;
 
 // We associate for each context (main, cleaner and all those in struct node*) a valgrind_stackid
 // This id is used by VALGRIND_STACK_REGISTER and VALGRIND_STACK_DEREGISTER in order to help valgrind for tracking context/stack switching
@@ -64,36 +64,42 @@ void clean_last_dirty_thread()
     }
 }
 
-
-
 #if SCHEDULING_POLICY == 0
-void append_node_to_queue(struct node* n) {
+void append_node_to_queue(struct node *n)
+{
     add_tail(thread_list, n);
 }
 
 void init_thread_lists()
 {
     thread_list = new_queue();
+    exited_thread = new_queue();
 }
 
-struct node* create_thread_node(ucontext_t* context) {
+struct node *create_thread_node(ucontext_t *context)
+{
     return new_node(context);
 }
 
-struct node* get_queue_head() {
+struct node *get_queue_head()
+{
     return get_head(thread_list);
 }
 
-struct node* pop_queue_head() {
+struct node *pop_queue_head()
+{
     return pop_head(thread_list);
 }
 
-void append_queue_to_queue(struct queue* src) {
+void append_queue_to_queue(struct queue *src)
+{
     append_queue(thread_list, src);
 }
 
-void free_threads() {
+void free_threads()
+{
     free_queue(thread_list);
+    free_queue(exited_thread);
 }
 
 #elif SCHEDULING_POLICY == 1
@@ -103,54 +109,57 @@ void init_thread_lists()
     {
         threads_priority_array[i] = new_queue();
     }
-    
-
 }
 
-void append_node_to_queue(struct node* n) {
+void append_node_to_queue(struct node *n)
+{
     add_tail(threads_priority_array[n->priority], n);
 }
 
-struct node* create_thread_node(ucontext_t* context) {
-    struct node* n = new_node(context);
+struct node *create_thread_node(ucontext_t *context)
+{
+    struct node *n = new_node(context);
     n->priority = 0;
 
     return n;
-
 }
 
-struct node* get_queue_head() {
+struct node *get_queue_head()
+{
     return get_head(threads_priority_array[currrent_highest_priority]);
 }
 
-
-struct node* pop_queue_head() {
+struct node *pop_queue_head()
+{
     return pop_head(threads_priority_array[currrent_highest_priority]);
 }
 
-void append_queue_to_queue(struct queue* src) {
+void append_queue_to_queue(struct queue *src)
+{
     append_queue(threads_priority_array[currrent_highest_priority], src);
 }
 
-void free_threads() {
-    for(int i = 9; i >= 0; i--) {
+void free_threads()
+{
+    for (int i = 9; i >= 0; i--)
+    {
         free_queue(threads_priority_array[i]);
     }
 }
 
-void update_highest_priority() {
-    while(queue_empty(threads_priority_array[currrent_highest_priority])) {
+void update_highest_priority()
+{
+    while (queue_empty(threads_priority_array[currrent_highest_priority]))
+    {
         currrent_highest_priority -= 1;
-        if(currrent_highest_priority < 0) {
+        if (currrent_highest_priority < 0)
+        {
             currrent_highest_priority = 0;
         }
     }
 }
 
 #endif
-
-
-
 
 // Initialize our library if it was not done before (this information is saved with is_init variable)
 void thread_init_if_necessary()
@@ -195,7 +204,7 @@ thread_t thread_self()
 // This function is used to wrap any function given to thread_create in order to make sure that they call thread_exit
 void *thread_func_wrapper(void *(func)(void *), void *funcarg)
 {
-    //clean_last_dirty_thread();
+    // clean_last_dirty_thread();
     void *retval = func(funcarg);
 
     thread_exit(retval);
@@ -224,13 +233,11 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     // Returns the thread to the given location
     *newthread = n;
 
-
     // Add to the thread list as the last thread to execute
     append_node_to_queue(n);
 
     return EXIT_SUCCESS;
 }
-
 
 // Gives execution to the next thread in queue
 int thread_yield()
@@ -256,15 +263,14 @@ int thread_yield()
  */
 int thread_join(thread_t thread, void **retval)
 {
-    if (detect_deadlock(get_queue_head(), thread))
-    {
-        return -1;
-    }
-
+    struct node *n = get_queue_head();
+    // if (detect_deadlock(n, thread))
+    // {
+    // return -1;
+    // }
     // Putting the waiting thread into the given thread waiters_queue
     if (!thread->dirty)
     {
-        struct node *n = pop_queue_head();
         if (thread->waiters_queue == NULL)
         {
             thread->waiters_queue = new_queue();
@@ -274,7 +280,8 @@ int thread_join(thread_t thread, void **retval)
 #if SCHEDULING_POLICY == 1
         remove_node(threads_priority_array[thread->priority], thread);
         thread->priority = thread->priority == 9 ? 9 : thread->priority + 1;
-        if(thread->priority > currrent_highest_priority) {
+        if (thread->priority > currrent_highest_priority)
+        {
             currrent_highest_priority = thread->priority;
         }
         append_node_to_queue(thread);
@@ -292,8 +299,6 @@ int thread_join(thread_t thread, void **retval)
         *retval = thread->retval;
     }
 
-    free(thread);
-
     return EXIT_SUCCESS;
 }
 
@@ -308,6 +313,7 @@ int thread_join(thread_t thread, void **retval)
 void thread_exit(void *retval)
 {
     struct node *n = pop_queue_head();
+    add_tail(exited_thread, n);
     n->retval = retval;
     n->dirty = 1;
 
@@ -347,16 +353,6 @@ void thread_clean()
         return;
 
     free_threads();
-
-    if (main_thread_joined)
-    {
-        free_context(dirty_thread);
-        free(dirty_thread);
-    }
-    else if (dirty_thread)
-    {
-        free(dirty_thread);
-    }
 
     VALGRIND_STACK_DEREGISTER(main_valgrind_stackid);
     free(main_context->uc_stack.ss_sp);

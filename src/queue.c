@@ -106,6 +106,7 @@ struct node *new_node(ucontext_t *context)
 	n->next = NULL;
 	n->prec = NULL;
 	n->valgrind_stackid = 0;
+	n->waiter_count = 0;
 	n->waiters_queue = NULL;
 	// printf("%s: %p\n", __func__, n);
 	return n;

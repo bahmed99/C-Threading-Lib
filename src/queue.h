@@ -22,6 +22,7 @@ struct node
 #endif
 
 	struct queue *waiters_queue;
+	int waiter_count;
 };
 
 void add_tail(struct queue *q, struct node *n);
@@ -40,12 +41,12 @@ int queue_empty(struct queue *q);
 
 void append_queue(struct queue *q1, struct queue *q2);
 
-struct queue* new_queue();
+struct queue *new_queue();
 void free_queue(struct queue *q);
 
 struct node *new_node(ucontext_t *context);
 void free_node(struct node *n);
 
-int detect_deadlock(struct node*, struct node*);
+int detect_deadlock(struct node *, struct node *);
 
 #endif //!__QUEUE_H__
