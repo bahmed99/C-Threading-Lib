@@ -4,7 +4,7 @@
  * 1: PRIORITY
 */
 #ifndef SCHEDULING_POLICY
-#define SCHEDULING_POLICY 0
+#define SCHEDULING_POLICY 1
 #endif
 
 #ifndef __THREAD_H__

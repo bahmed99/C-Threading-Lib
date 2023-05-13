@@ -29,7 +29,6 @@ static void * thfunc(void *dummy __attribute__((unused)))
   err = thread_join(thmain, &res);
   assert(!err);
   assert(res == (void*) 0xdeadbeef);
-  printf("main terminé OK\n");
   return NULL;
 }
 
