@@ -283,6 +283,7 @@ int thread_join(thread_t thread, void **retval)
 
 #if SCHEDULING_POLICY == 1
         remove_node(threads_priority_array[thread->priority], thread);
+
         thread->priority = thread->priority == 9 ? 9 : thread->priority + 1;
         if (thread->priority > currrent_highest_priority)
         {
@@ -317,6 +318,8 @@ int thread_join(thread_t thread, void **retval)
 void thread_exit(void *retval)
 {
     struct node *n = pop_queue_head();
+    update_highest_priority();
+
     add_tail(exited_thread, n);
     n->retval = retval;
     n->dirty = 1;

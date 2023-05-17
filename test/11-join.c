@@ -41,7 +41,6 @@ int main()
 
   assert(!err);
   assert(res == (void*) 0xdeadbeef);
-
   err = thread_join(th2, &res);
   assert(!err);
   assert(res == (void*) 0xbeefdead);

@@ -72,6 +72,9 @@ void remove_node(struct queue *q, struct node *n)
 		n->next->prec = n->prec;
 	else
 		q->tail = n->prec;
+
+	n->prec = NULL;
+	n->next = NULL;
 }
 
 int queue_empty(struct queue *q)
