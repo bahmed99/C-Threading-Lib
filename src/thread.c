@@ -318,7 +318,6 @@ int thread_join(thread_t thread, void **retval)
 void thread_exit(void *retval)
 {
     struct node *n = pop_queue_head();
-    update_highest_priority();
 
     add_tail(exited_thread, n);
     n->retval = retval;
