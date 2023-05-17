@@ -42,6 +42,10 @@ ucontext_t *main_context;
 int main_valgrind_stackid;
 int main_thread_joined = 0;
 
+// This stack is the alternate signal stack used in order to handle signal on an other stack that the current one
+// Useful to handle mprotect SIGSEGV signal
+stack_t sig_alt_stack;
+
 void free_context(struct node *n)
 {
     VALGRIND_STACK_DEREGISTER(n->valgrind_stackid);
@@ -172,6 +176,16 @@ void update_highest_priority()
 
 #endif
 
+static void sighandler(int sig)
+{
+    printf("---------SIGSEGV-------\n");
+    if (sig == SIGSEGV)
+    {
+        printf("kill\n");
+        exit(0);
+    }
+}
+
 // Initialize our library if it was not done before (this information is saved with is_init variable)
 void thread_init_if_necessary()
 {
@@ -195,6 +209,32 @@ void thread_init_if_necessary()
     main_context->uc_stack.ss_sp = malloc(main_context->uc_stack.ss_size);
     main_valgrind_stackid = VALGRIND_STACK_REGISTER(main_context->uc_stack.ss_sp, main_context->uc_stack.ss_sp + main_context->uc_stack.ss_size);
     n->valgrind_stackid = main_valgrind_stackid;
+
+    //////
+    // This part is relative to the allocated memory overflow protection
+    //////
+    sig_alt_stack.ss_size = MINSIGSTKSZ;
+    sig_alt_stack.ss_sp = malloc(sig_alt_stack.ss_size);
+    sig_alt_stack.ss_flags = 0;
+
+    stack_t old_ss;
+    if (sigaltstack(&sig_alt_stack, &old_ss) == -1)
+    {
+        perror("sigaltstack");
+        exit(EXIT_FAILURE);
+    }
+    // printf("==============> %ld\n", old_ss.ss_size);
+
+    // we change the signal SIGSEGV
+    struct sigaction new_act;
+
+    new_act.sa_handler = sighandler;
+    new_act.sa_flags = SA_ONSTACK;
+    sigemptyset(&new_act.sa_mask);
+    sigaction(SIGSEGV, &new_act, NULL);
+    //////
+    //
+    //////
 
     // Add the main_thread_node to the thread list
     // -> The main thread is at this point the only and currently executed thread
@@ -223,17 +263,6 @@ void *thread_func_wrapper(void *(func)(void *), void *funcarg)
     return (void *)0xdeadbeef; // This line should not be executed but the compiler will happily read it
 }
 
-
-static void sighandler(int sig){
-           printf("---------SIGSEGV-------\n");
-           if (sig == SIGSEGV){  
-                printf("kill\n");
-                exit(0);
-            }
-}
-
-
-
 int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 {
     thread_init_if_necessary();
@@ -249,35 +278,13 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, current->uc_stack.ss_sp + current->uc_stack.ss_size);
 
-    stack_t st;
-    int sigstack = MINSIGSTKSZ;
-    st.ss_sp = malloc(sigstack);
-    st.ss_size = sigstack;
-    st.ss_flags = 0;
-    if (sigaltstack(&st, NULL) == -1) {
-        perror("sigaltstack");
-        exit(EXIT_FAILURE);
-    }
-    // we change the signal SIGSEGV
-    struct sigaction new_act;
-
-    new_act.sa_handler = sighandler;
-    new_act.sa_flags=SA_ONSTACK;
-    sigemptyset(&new_act.sa_mask);
-    sigaction(SIGSEGV,&new_act,NULL);
-    
     // printf("adresse debut: %p - adresse fin %p\n",current->uc_stack.ss_sp,current->uc_stack.ss_sp);
     // we protect the end of the stack and send a SIGSEGV if the thread try to access to this memory
-    //printf("sigstack adress: %p , %p /// mprotect adress: %p , %p \n",st.ss_sp,st.ss_sp+st.ss_size,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sigstack+1,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sigstack+1+END_STACK-1 );
-    mprotect(current->uc_stack.ss_sp+STACK_SIZE-END_STACK+1,END_STACK-1,PROT_NONE);
+    // printf("sig_alt_stack adress: %p , %p /// mprotect adress: %p , %p \n",st.ss_sp,st.ss_sp+st.ss_size,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sig_alt_stack+1,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sig_alt_stack+1+END_STACK-1 );
+    mprotect(current->uc_stack.ss_sp + STACK_SIZE - END_STACK + 1, END_STACK - 1, PROT_NONE);
 
     // Associates the given function (wrapped with thread_func_wrapper) to the context
     makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
-
-    // Associates the given function (wrapped with thread_func_wrapper) to the context
-    makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
-
-    
 
     // Returns the thread to the given location
     *newthread = n;
@@ -409,6 +416,9 @@ void thread_clean()
     }
     free_threads();
 
+    // Free the alternate signal stack
+    free(sig_alt_stack.ss_sp);
+
     VALGRIND_STACK_DEREGISTER(main_valgrind_stackid);
     free(main_context->uc_stack.ss_sp);
     free(main_context);
@@ -460,7 +470,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex)
         struct node *head = pop_head(mutex->waiting_mutex);
 
 #if SCHEDULING_POLICY == 1
-    update_highest_priority();
+        update_highest_priority();
 #endif
 
         // printf("%s 1 %p \t %d \t %d\n", __func__, head, head->priority, currrent_highest_priority);
