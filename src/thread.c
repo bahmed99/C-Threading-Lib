@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#define _POSIX_SOURCE
 #include "thread.h"
 #include <ucontext.h>
 #include "queue.h"
@@ -5,8 +7,10 @@
 #include <stdio.h>
 #include <signal.h>
 #include <valgrind/valgrind.h>
+#include <sys/mman.h>
 
 #define STACK_SIZE 1024 * 12
+#define END_STACK 10
 
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
@@ -219,6 +223,17 @@ void *thread_func_wrapper(void *(func)(void *), void *funcarg)
     return (void *)0xdeadbeef; // This line should not be executed but the compiler will happily read it
 }
 
+
+static void sighandler(int sig){
+           printf("---------SIGSEGV-------\n");
+           if (sig == SIGSEGV){  
+                printf("kill\n");
+                exit(0);
+            }
+}
+
+
+
 int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
 {
     thread_init_if_necessary();
@@ -234,8 +249,35 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, current->uc_stack.ss_sp + current->uc_stack.ss_size);
 
+    stack_t st;
+    int sigstack = MINSIGSTKSZ;
+    st.ss_sp = malloc(sigstack);
+    st.ss_size = sigstack;
+    st.ss_flags = 0;
+    if (sigaltstack(&st, NULL) == -1) {
+        perror("sigaltstack");
+        exit(EXIT_FAILURE);
+    }
+    // we change the signal SIGSEGV
+    struct sigaction new_act;
+
+    new_act.sa_handler = sighandler;
+    new_act.sa_flags=SA_ONSTACK;
+    sigemptyset(&new_act.sa_mask);
+    sigaction(SIGSEGV,&new_act,NULL);
+    
+    // printf("adresse debut: %p - adresse fin %p\n",current->uc_stack.ss_sp,current->uc_stack.ss_sp);
+    // we protect the end of the stack and send a SIGSEGV if the thread try to access to this memory
+    //printf("sigstack adress: %p , %p /// mprotect adress: %p , %p \n",st.ss_sp,st.ss_sp+st.ss_size,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sigstack+1,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sigstack+1+END_STACK-1 );
+    mprotect(current->uc_stack.ss_sp+STACK_SIZE-END_STACK+1,END_STACK-1,PROT_NONE);
+
     // Associates the given function (wrapped with thread_func_wrapper) to the context
     makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
+
+    // Associates the given function (wrapped with thread_func_wrapper) to the context
+    makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
+
+    
 
     // Returns the thread to the given location
     *newthread = n;
