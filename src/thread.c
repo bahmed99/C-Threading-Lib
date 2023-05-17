@@ -110,12 +110,15 @@ void init_thread_lists()
         threads_priority_array[i] = new_queue();
     }
     exited_thread = new_queue();
-
 }
 
 void append_node_to_queue(struct node *n)
 {
     add_tail(threads_priority_array[n->priority], n);
+    if (n->priority > currrent_highest_priority)
+    {
+        currrent_highest_priority = n->priority;
+    }
 }
 
 struct node *create_thread_node(ucontext_t *context)
@@ -390,9 +393,15 @@ int thread_mutex_lock(thread_mutex_t *mutex)
     if (mutex->owner)
     {
         struct node *current_thread = pop_queue_head();
-
         add_tail(mutex->waiting_mutex, current_thread);
+
+#if SCHEDULING_POLICY == 1
+        update_highest_priority();
+#endif
+
+        // printf("%s 1 %p\n", __func__, get_queue_head());
         swapcontext(current_thread->uc, get_queue_head()->uc);
+        // printf("%s 2\n", __func__);
         clean_last_dirty_thread();
     }
     else
@@ -407,7 +416,19 @@ int thread_mutex_unlock(thread_mutex_t *mutex)
     if (!queue_empty(mutex->waiting_mutex))
     {
         struct node *head = pop_head(mutex->waiting_mutex);
+
+#if SCHEDULING_POLICY == 1
+    update_highest_priority();
+#endif
+
+        // printf("%s 1 %p \t %d \t %d\n", __func__, head, head->priority, currrent_highest_priority);
+        // printf("%s 1 %p\n", __func__, head);
+
         append_node_to_queue(head);
+
+        // printf("%s 2 %p \t %d \t %d\n", __func__, head, head->priority, currrent_highest_priority);
+        // printf("%s 2 %p\n", __func__, head);
+
         mutex->owner = head;
     }
     else
