@@ -35,9 +35,9 @@ class PLot_performence():
                 time2=time.time_ns()/1000
                 threadsystemtime = time2-time1
                 # pthread
-                os.system("make "+ self.exemple+ " >/dev/null 2>/dev/null")
+                os.system("make pthreads"+ self.exemple+ " >/dev/null 2>/dev/null")
                 time1=time.time_ns()/1000
-                os.system("./install/bin/"+self.exemple + args + " >/dev/null 2>/dev/null")
+                os.system("./install/bin/"+self.exemple + args + ">/dev/null 2>/dev/null")
                 time2=time.time_ns()/1000
                 pthreadsystemtime = time2-time1
                 return threadsystemtime , pthreadsystemtime
@@ -133,7 +133,7 @@ class PLot_performence():
                 plt.subplot(1, 2, 2)
 
                 plt.plot(difftime,'-*r')
-                plt.title("Diff time")
+                plt.title("Pthread time - Thread time")
                 plt.xlabel(" Number of the execution")
                 plt.xticks(range(0,len(threadtime),2))
                 plt.ylabel(" Time (micro second)")
@@ -154,7 +154,7 @@ plot=PLot_performence()
 
 
 if len(sys.argv) != 2:
-    print( "error: too much argument, pls enter the name of the test, or run all for run all the performence tests")
+    print( "error: no argument, pls enter the name of the test, or run_all for run all the performence tests")
     exit()
 else:
     test_name= sys.argv[1]
@@ -192,7 +192,7 @@ else:
                 plot.plot_exec_time_in_fonction_of_arg("33-switch-many-cascade ",indice= 1,list_initial_args=["10","0"],list_test_args=[str(500*i) for i in range(20)])
         case "run_all":
                 # run all test without parameters
-                ##plot.plot_all_exec_time()
+                # plot.plot_all_exec_time()
 
                 # run tests without args with multi execution
 
