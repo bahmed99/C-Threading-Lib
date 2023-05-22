@@ -23,6 +23,9 @@ struct node
 
 	struct queue *waiters_queue;
 	int waiter_count;
+
+	// Equals 0 if the stack is fine, equals to 1 if the stack overflowed (useful for thread_join)
+	int stack_overflow;
 };
 
 void add_tail(struct queue *q, struct node *n);

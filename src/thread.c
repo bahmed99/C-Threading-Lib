@@ -6,14 +6,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <malloc.h>
+#include <unistd.h>
 #include <valgrind/valgrind.h>
 #include <sys/mman.h>
 
-#define STACK_SIZE 1024 * 12
-#define END_STACK 10
-
 // This variable is used by thread_init_if_necessary() function in order to track if the library has already been initialized
 int is_init = 0;
+long PAGESIZE = 0;
+
+#define STACK_SIZE (PAGESIZE * 4)
 
 #if SCHEDULING_POLICY == 0
 // This queue store the current threads
@@ -48,6 +50,8 @@ stack_t sig_alt_stack;
 
 void free_context(struct node *n)
 {
+    // printf("\nPROT_READ|PROT_WRITE :%p :%ld :%ld :%ld \n", n->uc->uc_stack.ss_sp, STACK_SIZE, PAGESIZE, STACK_SIZE - PAGESIZE);
+    mprotect(n->uc->uc_stack.ss_sp, PAGESIZE, PROT_READ | PROT_WRITE);
     VALGRIND_STACK_DEREGISTER(n->valgrind_stackid);
     free(n->uc->uc_stack.ss_sp);
     free(n->uc);
@@ -178,11 +182,11 @@ void update_highest_priority()
 
 static void sighandler(int sig)
 {
-    printf("---------SIGSEGV-------\n");
     if (sig == SIGSEGV)
     {
-        printf("kill\n");
-        exit(0);
+        printf("STACK OVERFLOW... killing thread..\n");
+        thread_self()->stack_overflow = 1;
+        thread_exit(NULL);
     }
 }
 
@@ -194,6 +198,8 @@ void thread_init_if_necessary()
         return;
     }
     is_init = 1;
+
+    PAGESIZE = sysconf(_SC_PAGE_SIZE);
 
     // Initialize the thread queue(s)
     init_thread_lists();
@@ -211,7 +217,7 @@ void thread_init_if_necessary()
     n->valgrind_stackid = main_valgrind_stackid;
 
     //////
-    // This part is relative to the allocated memory overflow protection
+    // This part is relative to the allocated memory on stack overflow protection
     //////
     sig_alt_stack.ss_size = MINSIGSTKSZ;
     sig_alt_stack.ss_sp = malloc(sig_alt_stack.ss_size);
@@ -223,7 +229,6 @@ void thread_init_if_necessary()
         perror("sigaltstack");
         exit(EXIT_FAILURE);
     }
-    // printf("==============> %ld\n", old_ss.ss_size);
 
     // we change the signal SIGSEGV
     struct sigaction new_act;
@@ -275,13 +280,13 @@ int thread_create(thread_t *newthread, void *(func)(void *), void *funcarg)
     getcontext(current);
     current->uc_link = NULL;
     current->uc_stack.ss_size = STACK_SIZE;
-    current->uc_stack.ss_sp = malloc(current->uc_stack.ss_size);
+    current->uc_stack.ss_sp = memalign(PAGESIZE, current->uc_stack.ss_size);
     n->valgrind_stackid = VALGRIND_STACK_REGISTER(current->uc_stack.ss_sp, current->uc_stack.ss_sp + current->uc_stack.ss_size);
 
     // printf("adresse debut: %p - adresse fin %p\n",current->uc_stack.ss_sp,current->uc_stack.ss_sp);
     // we protect the end of the stack and send a SIGSEGV if the thread try to access to this memory
-    // printf("sig_alt_stack adress: %p , %p /// mprotect adress: %p , %p \n",st.ss_sp,st.ss_sp+st.ss_size,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sig_alt_stack+1,current->uc_stack.ss_sp+STACK_SIZE-END_STACK-sig_alt_stack+1+END_STACK-1 );
-    mprotect(current->uc_stack.ss_sp + STACK_SIZE - END_STACK + 1, END_STACK - 1, PROT_NONE);
+    // printf("\nPROT_NONE :%p :%ld :%ld :%ld \n", current->uc_stack.ss_sp, STACK_SIZE, PAGESIZE, STACK_SIZE - PAGESIZE);
+    mprotect(current->uc_stack.ss_sp, PAGESIZE, PROT_NONE);
 
     // Associates the given function (wrapped with thread_func_wrapper) to the context
     makecontext(current, (void (*)(void))thread_func_wrapper, 2, func, funcarg);
@@ -350,6 +355,11 @@ int thread_join(thread_t thread, void **retval)
 
     // From now on, thread->dirty should be equal to 1
     // (Thanks to the waiters queue functionality, see thread_exit() for more informations)
+
+    // If the thread got a stack overflow we return an error
+    if(thread->stack_overflow) {
+        return -1;
+    }
 
     if (retval)
     {

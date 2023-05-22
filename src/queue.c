@@ -111,6 +111,7 @@ struct node *new_node(ucontext_t *context)
 	n->valgrind_stackid = 0;
 	n->waiter_count = 0;
 	n->waiters_queue = NULL;
+	n->stack_overflow = 0;
 	// printf("%s: %p\n", __func__, n);
 	return n;
 }
